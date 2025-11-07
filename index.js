@@ -4,43 +4,68 @@ const multer = require("multer");
 const fs = require("fs");
 const axios = require("axios");
 const FormData = require("form-data");
+const path = require("path");
 
 const app = express();
 app.use(express.static("public"));
 
-// Multer temp folder
 const upload = multer({ dest: "/tmp/uploads" });
 
-// *** IMAGE ENHANCE ***
+const IMG_CT = {
+  jpeg: "image/jpeg",
+  jpg:  "image/jpeg",
+  png:  "image/png",
+  webp: "image/webp",
+};
+
+function safeUnlink(p) { if (p && fs.existsSync(p)) fs.unlink(p, ()=>{}); }
+
+/* ---------- IMAGE (sync) ---------- */
 app.post("/enhance/image", upload.single("file"), async (req, res) => {
+  const tmp = req.file?.path;
   try {
+    const { model = "Standard V2", scale = "2x", format = "jpeg" } = req.body;
+
     const form = new FormData();
-    form.append("image", fs.createReadStream(req.file.path));
-    form.append("model", req.body.model);
-    form.append("scale", req.body.scale);
-    form.append("output_format", req.body.format);
+    form.append("image", fs.createReadStream(tmp));
+    form.append("model", model);
+    form.append("scale", scale);
+    form.append("output_format", format);
 
-    const r = await axios.post("https://api.topazlabs.com/image/v1/enhance", form, {
-      headers: { ...form.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
-      responseType: "arraybuffer"
-    });
+    const r = await axios.post(
+      "https://api.topazlabs.com/image/v1/enhance",
+      form,
+      {
+        headers: { ...form.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
+        responseType: "arraybuffer",
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
+    );
 
-    res.set("Content-Type", "image/jpeg");
+    const ct = IMG_CT[format?.toLowerCase()] || "application/octet-stream";
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Content-Disposition", `attachment; filename="enhanced.${format}"`);
     res.send(Buffer.from(r.data, "binary"));
-  } catch (err) {
-    res.status(500).send("Error");
+  } catch (e) {
+    console.error(e?.response?.data || e.message);
+    res.status(500).send("Image processing error");
   } finally {
-    fs.unlink(req.file.path, () => {});
+    safeUnlink(tmp);
   }
 });
 
-// *** VIDEO ENHANCE (ASYNC) ***
+/* ---------- VIDEO (async) ---------- */
 app.post("/enhance/video", upload.single("file"), async (req, res) => {
+  const tmp = req.file?.path;
   try {
+    const { model = "Standard V2", scale = "2x", format = "mp4" } = req.body;
+
+    // 1) Start async job
     const startForm = new FormData();
-    startForm.append("model", req.body.model);
-    startForm.append("scale", req.body.scale);
-    startForm.append("output_format", req.body.format);
+    startForm.append("model", model);
+    startForm.append("scale", scale);
+    startForm.append("output_format", format);
 
     const start = await axios.post(
       "https://api.topazlabs.com/video/v1/enhance/async",
@@ -50,8 +75,9 @@ app.post("/enhance/video", upload.single("file"), async (req, res) => {
 
     const processId = start.data.process_id;
 
+    // 2) Upload source video to that job
     const uploadForm = new FormData();
-    uploadForm.append("video", fs.createReadStream(req.file.path));
+    uploadForm.append("video", fs.createReadStream(tmp));
 
     await axios.post(
       `https://api.topazlabs.com/video/v1/enhance/${processId}/upload`,
@@ -59,25 +85,52 @@ app.post("/enhance/video", upload.single("file"), async (req, res) => {
       { headers: { ...uploadForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
 
-    fs.unlink(req.file.path, () => {});
     res.json({ processId });
   } catch (e) {
-    res.status(500).send("Video Error");
+    console.error(e?.response?.data || e.message);
+    res.status(500).send("Video start/upload error");
+  } finally {
+    safeUnlink(tmp);
   }
 });
 
-// POLL STATUS
+/* Poll job status (client uses it for progress) */
 app.get("/status/:id", async (req, res) => {
-  const id = req.params.id;
   try {
     const st = await axios.get(
-      `https://api.topazlabs.com/video/v1/status/${id}`,
+      `https://api.topazlabs.com/video/v1/status/${req.params.id}`,
       { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
     res.json(st.data);
-  } catch {
-    res.json({ status: "error" });
+  } catch (e) {
+    res.status(500).json({ status: "error" });
   }
 });
 
-app.listen(process.env.PORT || 3000);
+/* Server-side download to force “Save As” */
+app.get("/video/download/:id", async (req, res) => {
+  try {
+    const st = await axios.get(
+      `https://api.topazlabs.com/video/v1/status/${req.params.id}`,
+      { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+
+    if (st.data.status !== "completed" || !st.data.output_url) {
+      return res.status(425).send("Not ready");
+    }
+
+    const url = st.data.output_url;
+    const filename = `enhanced_${req.params.id}.mp4`;
+
+    const streamResp = await axios.get(url, { responseType: "stream" });
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    streamResp.data.pipe(res);
+  } catch (e) {
+    console.error(e.message);
+    res.status(500).send("Download error");
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Listening on ${PORT}`));
