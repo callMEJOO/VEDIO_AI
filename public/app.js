@@ -1,33 +1,49 @@
 let file;
 
-document.getElementById("fileInput").addEventListener("change", e => {
-    file = e.target.files[0];
-    document.getElementById("beforeImg").src = URL.createObjectURL(file);
-});
+document.getElementById("fileInput").onchange = e => {
+  file = e.target.files[0];
+  document.getElementById("beforeImg").src = URL.createObjectURL(file);
+  document.getElementById("status").innerText = "";
+  document.getElementById("afterImg").src = "";
+};
 
-document.getElementById("enhanceBtn").addEventListener("click", async () => {
-    if(!file) return alert("اختر ملف");
+document.getElementById("enhanceBtn").onclick = async () => {
+  if (!file) return alert("Choose file");
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("model", document.getElementById("modelSelect").value);
-    form.append("scale", document.getElementById("scaleSelect").value);
+  const model = modelSelect.value;
+  const scale = scaleSelect.value;
+  const format = formatSelect.value;
 
-    const progressBar = document.getElementById("bar");
-    progressBar.style.width = "10%";
+  const form = new FormData();
+  form.append("file", file);
+  form.append("model", model);
+  form.append("scale", scale);
+  form.append("format", format);
 
-    const res = await fetch("/enhance", { method:"POST", body:form });
-
-    progressBar.style.width = "60%";
-
+  if (file.type.startsWith("image")) {
+    const res = await fetch("/enhance/image", { method: "POST", body: form });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
+    afterImg.src = url;
+    downloadBtn.href = url;
+    downloadBtn.style.display = "block";
+  } else {
+    const res = await fetch("/enhance/video", { method:"POST", body:form });
+    const { processId } = await res.json();
+    document.getElementById("status").innerText = "Rendering...";
+    
+    const poll = setInterval(async () => {
+      const s = await fetch("/status/" + processId).then(r => r.json());
+      document.getElementById("status").innerText = s.status;
 
-    document.getElementById("afterImg").src = url;
-
-    const dl = document.getElementById("downloadBtn");
-    dl.href = url;
-    dl.style.display = "block";
-
-    progressBar.style.width = "100%";
-});
+      if (s.status === "completed") {
+        clearInterval(poll);
+        const blob = await fetch(s.output_url).then(r => r.blob());
+        const url = URL.createObjectURL(blob);
+        afterImg.src = url;
+        downloadBtn.href = url;
+        downloadBtn.style.display = "block";
+      }
+    }, 3000);
+  }
+};
