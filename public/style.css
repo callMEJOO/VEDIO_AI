@@ -1,0 +1,8 @@
+body {text-align:center; font-family:Arial; background:#111; color:#fff}
+h2 {margin-top:20px; font-size:26px}
+.container {display:flex; justify-content:center; gap:15px; margin:20px auto}
+.box {background:#222; padding:10px; border-radius:8px}
+img {max-width:300px; border-radius:6px; border:1px solid #333}
+#progress {width:60%; height:15px; background:#222; margin:20px auto; border-radius:6px}
+#bar {height:100%; width:0%; background:#0f0; border-radius:6px}
+button {padding:10px 20px; cursor:pointer; font-size:16px; border:none; border-radius:6px}
