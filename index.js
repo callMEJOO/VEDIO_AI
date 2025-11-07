@@ -7,20 +7,26 @@ const FormData = require("form-data");
 const path = require("path");
 
 const app = express();
+
+// واجهة
 app.use(express.static("public"));
 
-const upload = multer({ dest: "/tmp/uploads" });
+// مجلد تمبوراري أسرع على Render + حد حجم كبير نسبياً
+const upload = multer({
+  dest: "/tmp/uploads",
+  limits: { fileSize: 1024 * 1024 * 512 } // 512MB
+});
 
 const IMG_CT = {
   jpeg: "image/jpeg",
   jpg:  "image/jpeg",
   png:  "image/png",
-  webp: "image/webp",
+  webp: "image/webp"
 };
 
 function safeUnlink(p) { if (p && fs.existsSync(p)) fs.unlink(p, ()=>{}); }
 
-/* ---------- IMAGE (sync) ---------- */
+/* ---------------------- IMAGE (sync) ---------------------- */
 app.post("/enhance/image", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
@@ -43,25 +49,25 @@ app.post("/enhance/image", upload.single("file"), async (req, res) => {
       }
     );
 
-    const ct = IMG_CT[format?.toLowerCase()] || "application/octet-stream";
+    const ct = IMG_CT[(format || "").toLowerCase()] || "application/octet-stream";
     res.setHeader("Content-Type", ct);
     res.setHeader("Content-Disposition", `attachment; filename="enhanced.${format}"`);
     res.send(Buffer.from(r.data, "binary"));
   } catch (e) {
-    console.error(e?.response?.data || e.message);
-    res.status(500).send("Image processing error");
+    console.error("IMAGE ERROR:", e?.response?.data || e.message);
+    res.status(400).send("Image processing error");
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ---------- VIDEO (async) ---------- */
+/* ---------------------- VIDEO (async) ---------------------- */
 app.post("/enhance/video", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
     const { model = "Standard V2", scale = "2x", format = "mp4" } = req.body;
 
-    // 1) Start async job
+    // 1) ابدأ المهمة
     const startForm = new FormData();
     startForm.append("model", model);
     startForm.append("scale", scale);
@@ -70,31 +76,39 @@ app.post("/enhance/video", upload.single("file"), async (req, res) => {
     const start = await axios.post(
       "https://api.topazlabs.com/video/v1/enhance/async",
       startForm,
-      { headers: { ...startForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
+      {
+        headers: { ...startForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
     );
-
     const processId = start.data.process_id;
 
-    // 2) Upload source video to that job
+    // 2) ارفع الفيديو للمهمة
     const uploadForm = new FormData();
     uploadForm.append("video", fs.createReadStream(tmp));
 
     await axios.post(
       `https://api.topazlabs.com/video/v1/enhance/${processId}/upload`,
       uploadForm,
-      { headers: { ...uploadForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
+      {
+        headers: { ...uploadForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
     );
 
     res.json({ processId });
   } catch (e) {
-    console.error(e?.response?.data || e.message);
-    res.status(500).send("Video start/upload error");
+    const msg = e?.response?.data || e?.message || "Video start/upload error";
+    console.error("VIDEO ERROR:", msg);
+    res.status(400).json({ error: msg });
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* Poll job status (client uses it for progress) */
+/* حالة المهمة (لـ polling) */
 app.get("/status/:id", async (req, res) => {
   try {
     const st = await axios.get(
@@ -103,11 +117,12 @@ app.get("/status/:id", async (req, res) => {
     );
     res.json(st.data);
   } catch (e) {
+    console.error("STATUS ERROR:", e?.response?.data || e.message);
     res.status(500).json({ status: "error" });
   }
 });
 
-/* Server-side download to force “Save As” */
+/* تنزيل الفيديو من السيرفر (Content-Disposition = تنزيل حقيقي) */
 app.get("/video/download/:id", async (req, res) => {
   try {
     const st = await axios.get(
@@ -127,7 +142,7 @@ app.get("/video/download/:id", async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     streamResp.data.pipe(res);
   } catch (e) {
-    console.error(e.message);
+    console.error("DOWNLOAD ERROR:", e?.response?.data || e.message);
     res.status(500).send("Download error");
   }
 });
