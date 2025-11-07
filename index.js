@@ -7,23 +7,25 @@ const FormData = require("form-data");
 
 const app = express();
 
-// static first
+// static UI
 app.use(express.static("public"));
 
-// quick health check
+// quick health
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// simple request log
+// simple log
 app.use((req, _res, next) => { console.log(`${req.method} ${req.path}`); next(); });
 
+// temp folder on Render + 512MB cap
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 512 } // 512MB
+  limits: { fileSize: 1024 * 1024 * 512 }
 });
 const safeUnlink = p => { if (p && fs.existsSync(p)) fs.unlink(p, ()=>{}); };
+
 const IMG_CT = { jpeg:"image/jpeg", jpg:"image/jpeg", png:"image/png", webp:"image/webp", tiff:"image/tiff", tif:"image/tiff" };
 
-/* IMAGE (sync) */
+/* ---------------------- IMAGE (sync) ---------------------- */
 app.post("/enhance/image", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
@@ -58,12 +60,22 @@ app.post("/enhance/image", upload.single("file"), async (req, res) => {
   }
 });
 
-/* VIDEO (async) */
+/* ---------------------- VIDEO (async) - robust upload flow ---------------------- */
 app.post("/enhance/video", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
-    const { model="Proteus", model_option, scale="2x", format="mp4", fps_target } = req.body;
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ error: "No video file uploaded" });
+    }
+    const {
+      model = "Proteus",
+      model_option,
+      scale = "2x",
+      format = "mp4",
+      fps_target
+    } = req.body;
 
+    // 1) start job
     const startForm = new FormData();
     startForm.append("model", model);
     if (model_option) startForm.append("model_option", model_option);
@@ -78,27 +90,76 @@ app.post("/enhance/video", upload.single("file"), async (req, res) => {
     );
 
     const { process_id, upload_url } = start.data || {};
+    if (!process_id) throw new Error("Topaz did not return process_id");
 
-    if (upload_url) {
-      await axios.put(upload_url, fs.createReadStream(tmp), {
+    // helpers
+    const putToUrl = async (url) => {
+      console.log("TRY PUT upload_url");
+      await axios.put(url, fs.createReadStream(tmp), {
         headers: { "Content-Type": "application/octet-stream" },
         maxBodyLength: Infinity, maxContentLength: Infinity
       });
-    } else {
+    };
+    const postToUpload = async () => {
+      console.log("TRY POST /upload");
       const up = new FormData();
       up.append("video", fs.createReadStream(tmp));
-      await axios.post(
+      return axios.post(
         `https://api.topazlabs.com/video/v1/enhance/${process_id}/upload`,
         up,
         { headers: { ...up.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
           maxBodyLength: Infinity, maxContentLength: Infinity }
       );
+    };
+
+    // 2) upload: upload_url -> /upload -> status.upload_url
+    let uploaded = false;
+    let lastTried = "";
+
+    try {
+      if (upload_url) {
+        lastTried = `PUT ${upload_url}`;
+        await putToUrl(upload_url);
+        uploaded = true;
+      }
+    } catch (e) {
+      console.error("UPLOAD PUT (start.upload_url) failed:", e?.response?.status || e.message);
+    }
+
+    if (!uploaded) {
+      try {
+        lastTried = `POST /enhance/${process_id}/upload`;
+        await postToUpload();
+        uploaded = true;
+      } catch (e) {
+        console.error("UPLOAD POST /upload failed:", e?.response?.status || e.message);
+        if (e?.response?.status === 404) {
+          try {
+            const st = await axios.get(
+              `https://api.topazlabs.com/video/v1/status/${process_id}`,
+              { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
+            );
+            if (st.data?.upload_url) {
+              lastTried = `PUT ${st.data.upload_url} (from status)`;
+              await putToUrl(st.data.upload_url);
+              uploaded = true;
+            }
+          } catch (e2) {
+            console.error("STATUS/PUT (status.upload_url) failed:", e2?.response?.status || e2.message);
+          }
+        }
+      }
+    }
+
+    if (!uploaded) {
+      return res.status(404).json({ error: `Not Found while uploading video (last tried: ${lastTried || "none"})` });
     }
 
     res.json({ processId: process_id });
   } catch (e) {
-    console.error("VIDEO ERROR:", e?.response?.data || e.message);
-    res.status(400).json({ error: e?.response?.data || e.message });
+    const msg = e?.response?.data || e.message || "Video start/upload error";
+    console.error("VIDEO ERROR:", msg);
+    res.status(400).json({ error: typeof msg === "string" ? msg : JSON.stringify(msg) });
   } finally {
     safeUnlink(tmp);
   }
