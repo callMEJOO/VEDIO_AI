@@ -6,15 +6,19 @@ document.getElementById("fileInput").addEventListener("change", e => {
 });
 
 document.getElementById("enhanceBtn").addEventListener("click", async () => {
-    if (!file) return alert("Choose file first!");
+    if(!file) return alert("اختر ملف");
 
     const form = new FormData();
     form.append("file", file);
+    form.append("model", document.getElementById("modelSelect").value);
+    form.append("scale", document.getElementById("scaleSelect").value);
 
-    const res = await fetch("/enhance", {
-        method: "POST",
-        body: form
-    });
+    const progressBar = document.getElementById("bar");
+    progressBar.style.width = "10%";
+
+    const res = await fetch("/enhance", { method:"POST", body:form });
+
+    progressBar.style.width = "60%";
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -23,6 +27,7 @@ document.getElementById("enhanceBtn").addEventListener("click", async () => {
 
     const dl = document.getElementById("downloadBtn");
     dl.href = url;
-    dl.download = "enhanced.jpg";
     dl.style.display = "block";
+
+    progressBar.style.width = "100%";
 });
