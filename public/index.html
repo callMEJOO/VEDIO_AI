@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8" />
-<title>VEDIO_AI — Enhancer</title>
-<link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>VEDIO_AI — Enhancer</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>VEDIO_AI</h1>
-    <p>Upscale & Enhance (Image / Video)</p>
+    <p>Upscale & Enhance — Image / Video</p>
   </header>
 
   <section class="controls">
@@ -16,13 +16,9 @@
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <select id="modelSelect" title="Model">
-      <option value="Standard V2">Standard V2</option>
-      <option value="Low Resolution">Low Resolution</option>
-      <option value="Lines">Lines</option>
-      <option value="Clear">Clear</option>
-      <option value="Face">Face Recovery</option>
-    </select>
+    <!-- يتم تعبئتها ديناميكياً حسب نوع الملف -->
+    <select id="modelSelect" title="Model"></select>
+    <select id="optionSelect" title="Model Option (إن وُجد)"></select>
 
     <select id="scaleSelect" title="Scale">
       <option value="1x">1×</option>
@@ -36,6 +32,9 @@
       <option value="webp">WEBP (image)</option>
       <option value="mp4">MP4 (video)</option>
     </select>
+
+    <!-- لِـ Apollo/Chronos (فيديو فقط) -->
+    <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps target (video)" />
 
     <button id="enhanceBtn" class="primary">تشغيل التحسين</button>
     <button id="resetBtn" class="ghost">Reset</button>
