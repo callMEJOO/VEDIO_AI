@@ -2,36 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>VEDIO_AI - AI Upscale</title>
+<title>VEDIO_AI</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h2>VEDIO_AI 🔥 Upscale & Enhance</h2>
-
 <div class="container">
+
+<h2>VEDIO_AI — AI Upscaler</h2>
+
+<div class="panel">
+    <label class="upload-box">
+        <input type="file" id="fileInput" hidden>
+        اختر صورة / فيديو
+    </label>
+
+    <select id="modelSelect">
+        <option value="Standard V2">Standard</option>
+        <option value="Lines">Lines</option>
+        <option value="Low Resolution">Low Resolution</option>
+    </select>
+
+    <select id="scaleSelect">
+        <option value="2x">2x Upscale</option>
+        <option value="4x">4x Upscale</option>
+    </select>
+
+    <button id="enhanceBtn">تشغيل التحسين</button>
+</div>
+
+<div class="preview-container">
     <div class="box">
         <h3>Before</h3>
-        <img id="beforeImg" src="" alt="">
+        <img id="beforeImg" src="">
     </div>
 
     <div class="box">
         <h3>After</h3>
-        <img id="afterImg" src="" alt="">
+        <img id="afterImg" src="">
     </div>
 </div>
 
-<input type="file" id="fileInput">
-
-<br><br>
-
-<button id="enhanceBtn">Enhance</button>
-
-<div id="progress">
+<div class="progress">
     <div id="bar"></div>
 </div>
 
-<a id="downloadBtn" style="display:none;">Download Result</a>
+<a id="downloadBtn" style="display:none" download="enhanced.jpg">⬇ تنزيل النتيجة</a>
+
+</div>
 
 <script src="app.js"></script>
 </body>
