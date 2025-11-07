@@ -6,14 +6,12 @@
   <link rel="stylesheet" href="style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
-
 <body>
   <header>
     <h1>VEDIO_AI</h1>
     <p>Upscale & Enhance — Image / Video</p>
   </header>
 
-  <!-- Debug bar (لو حصل خطأ JS هتشوفه هنا) -->
   <div id="debug" class="debug" style="display:none"></div>
 
   <section class="controls">
@@ -21,7 +19,6 @@
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <!-- افتراضياً نعرض موديلات الصور: الباقي يتغير ديناميكياً -->
     <select id="modelSelect" title="Model">
       <option>Standard V2</option>
       <option>Low Resolution V2</option>
@@ -75,7 +72,6 @@
     <a id="downloadBtn" class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
   </section>
 
-  <!-- مهم جدًا: السكربت بعد العناصر -->
   <script src="app.js"></script>
 </body>
 </html>
