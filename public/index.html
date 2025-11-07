@@ -1,46 +1,69 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>VEDIO_AI</title>
+<title>VEDIO_AI — Enhancer</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <h1>VEDIO_AI</h1>
+    <p>Upscale & Enhance (Image/Video)</p>
+  </header>
 
-<h2>VEDIO_AI — Video & Image Enhancer 🚀</h2>
+  <section class="controls">
+    <label class="file-btn">
+      اختر ملف
+      <input type="file" id="fileInput" hidden>
+    </label>
 
-<input type="file" id="fileInput">
+    <select id="modelSelect" title="Model">
+      <option value="Standard V2">Standard V2</option>
+      <option value="Low Resolution">Low Resolution</option>
+      <option value="Lines">Lines</option>
+      <option value="Clear">Clear</option>
+      <option value="Face">Face Recovery</option>
+    </select>
 
-<select id="modelSelect">
-  <option value="Standard V2">Standard V2</option>
-  <option value="Low Resolution">Low Resolution</option>
-  <option value="Lines">Lines</option>
-  <option value="Clear">Clear</option>
-  <option value="Face">Face Recovery</option>
-</select>
+    <select id="scaleSelect" title="Scale">
+      <option value="1x">1×</option>
+      <option value="2x" selected>2×</option>
+      <option value="4x">4×</option>
+    </select>
 
-<select id="scaleSelect">
-  <option value="1x">1×</option>
-  <option value="2x">2×</option>
-  <option value="4x">4×</option>
-</select>
+    <select id="formatSelect" title="Format">
+      <option value="jpeg">JPEG (image)</option>
+      <option value="png">PNG (image)</option>
+      <option value="webp">WEBP (image)</option>
+      <option value="mp4">MP4 (video)</option>
+    </select>
 
-<select id="formatSelect">
-  <option value="jpeg">JPEG</option>
-  <option value="png">PNG</option>
-  <option value="webp">WEBP</option>
-  <option value="mp4">MP4 (video)</option>
-</select>
+    <button id="enhanceBtn">تشغيل التحسين</button>
+    <button id="resetBtn" class="ghost">Reset</button>
+  </section>
 
-<button id="enhanceBtn">Enhance</button>
+  <section class="preview">
+    <div class="pane">
+      <h3>Before</h3>
+      <img id="beforeImg" alt="" />
+      <video id="beforeVideo" controls></video>
+    </div>
+    <div class="pane">
+      <h3>After</h3>
+      <img id="afterImg" alt="" />
+      <video id="afterVideo" controls></video>
+    </div>
+  </section>
 
-<div id="status"></div>
+  <section class="status">
+    <div class="progress"><div id="bar"></div></div>
+    <div id="statusText"></div>
+  </section>
 
-<img id="beforeImg">
-<img id="afterImg">
+  <section class="actions">
+    <a id="downloadBtn" href="#" download class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
+  </section>
 
-<a id="downloadBtn" style="display:none;">Download</a>
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
