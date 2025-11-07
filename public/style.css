@@ -25,3 +25,4 @@ img, video{width:100%;max-height:520px;object-fit:contain;background:#0b0c0f;bor
 
 .actions{text-align:center;padding:16px}
 a.primary{display:inline-block;background:var(--accent);padding:10px 16px;border-radius:8px;color:#fff;text-decoration:none}
+
