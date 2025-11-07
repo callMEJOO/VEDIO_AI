@@ -4,28 +4,40 @@
   <meta charset="UTF-8" />
   <title>VEDIO_AI — Enhancer</title>
   <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
+
 <body>
   <header>
     <h1>VEDIO_AI</h1>
     <p>Upscale & Enhance — Image / Video</p>
   </header>
 
+  <!-- ======= Controls ======= -->
   <section class="controls">
+
     <label class="file-btn">اختر ملف
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <!-- يتم تعبئتها ديناميكياً حسب نوع الملف -->
-    <select id="modelSelect" title="Model"></select>
-    <select id="optionSelect" title="Model Option (إن وُجد)"></select>
+    <!-- Model -->
+    <select id="modelSelect" title="Model">
+      <option>Standard V2</option>
+    </select>
 
+    <!-- Model Option -->
+    <select id="optionSelect" title="Model Option (إن وُجد)">
+      <option value="">(لا يوجد)</option>
+    </select>
+
+    <!-- Scale -->
     <select id="scaleSelect" title="Scale">
       <option value="1x">1×</option>
       <option value="2x" selected>2×</option>
       <option value="4x">4×</option>
     </select>
 
+    <!-- Output Format -->
     <select id="formatSelect" title="Format">
       <option value="jpeg">JPEG (image)</option>
       <option value="png">PNG (image)</option>
@@ -33,19 +45,23 @@
       <option value="mp4">MP4 (video)</option>
     </select>
 
-    <!-- لِـ Apollo/Chronos (فيديو فقط) -->
+    <!-- FPS Target for Apollo/Chronos -->
     <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps target (video)" />
 
+    <!-- Actions -->
     <button id="enhanceBtn" class="primary">تشغيل التحسين</button>
     <button id="resetBtn" class="ghost">Reset</button>
   </section>
 
+  <!-- ======= Preview ======= -->
   <section class="preview">
+
     <div class="pane">
       <h3>Before</h3>
       <img id="beforeImg" alt="" />
       <video id="beforeVideo" controls></video>
     </div>
+
     <div class="pane">
       <h3>After</h3>
       <img id="afterImg" alt="" />
@@ -53,11 +69,13 @@
     </div>
   </section>
 
+  <!-- ===== Progress + Status ===== -->
   <section class="status">
     <div class="progress"><div id="bar"></div></div>
     <div id="statusText"></div>
   </section>
 
+  <!-- ===== Download ===== -->
   <section class="actions">
     <a id="downloadBtn" class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
   </section>
