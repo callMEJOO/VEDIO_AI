@@ -1,43 +1,65 @@
-// --- Debug helper: يطبع أي خطأ JS في شريط أحمر فوق ---
-window.addEventListener("error", (e) => {
+/************ Debug helpers ************/
+const dbg = (msg) => {
   const d = document.getElementById("debug");
+  if (!d) return;
   d.style.display = "block";
-  d.textContent = "[JS Error] " + (e.error?.message || e.message || "unknown");
+  d.textContent = msg;
+};
+window.addEventListener("error", (e) => {
+  dbg("[JS Error] " + (e.error?.message || e.message || "unknown"));
 });
 
+/************ DOM helpers ************/
+const $ = (id) => document.getElementById(id);
+const need = (id) => {
+  const el = $(id);
+  if (!el) dbg(`[UI] عنصر مفقود بالـ ID: ${id}`);
+  return el;
+};
+
+/************ State ************/
 let file = null;
 let pollTimer = null;
 let currentProcessId = null;
 let currentObjectURLs = [];
 
-const $ = id => document.getElementById(id);
+/************ UI utils ************/
 const revokeAll = () => { currentObjectURLs.forEach(u => URL.revokeObjectURL(u)); currentObjectURLs = []; };
-
-function resetUI(hard=false){
+const setProgress = (pct, text) => {
+  const bar = $("bar"); if (bar) bar.style.width = `${pct}%`;
+  const st  = $("statusText"); if (st && text) st.textContent = text;
+};
+const resetUI = (hard=false) => {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   currentProcessId = null;
-  ["beforeImg","afterImg"].forEach(id => $(id).src = "");
-  ["beforeVideo","afterVideo"].forEach(id => { const v=$(id); v.pause(); v.removeAttribute("src"); v.load(); });
-  $("beforeImg").style.display = "none"; $("afterImg").style.display  = "none";
-  $("beforeVideo").style.display = "none"; $("afterVideo").style.display  = "none";
-  $("downloadBtn").style.display = "none";
-  $("bar").style.width = "0%"; $("statusText").textContent = "";
+
+  const beforeImg  = $("beforeImg");
+  const afterImg   = $("afterImg");
+  const beforeVid  = $("beforeVideo");
+  const afterVid   = $("afterVideo");
+  const dl         = $("downloadBtn");
+
+  if (beforeImg) beforeImg.src = "";
+  if (afterImg)  afterImg.src  = "";
+  if (beforeVid) { beforeVid.pause(); beforeVid.removeAttribute("src"); beforeVid.load(); }
+  if (afterVid)  { afterVid.pause();  afterVid.removeAttribute("src");  afterVid.load(); }
+
+  if (beforeImg) beforeImg.style.display = "none";
+  if (afterImg)  afterImg.style.display  = "none";
+  if (beforeVid) beforeVid.style.display = "none";
+  if (afterVid)  afterVid.style.display  = "none";
+  if (dl)        dl.style.display        = "none";
+
+  setProgress(0, "");
   revokeAll();
-  if (hard) { $("fileInput").value = ""; file = null; }
-}
-function setProgress(pct, text){ $("bar").style.width = `${pct}%`; if (text) $("statusText").textContent = text; }
+  if (hard) {
+    const fi = $("fileInput");
+    if (fi) { fi.value = ""; }
+    file = null;
+  }
+};
 
-// fallback لتحديد النوع من الامتداد لو type فاضي
-function kindFromName(name){
-  const ext = (name.split(".").pop() || "").toLowerCase();
-  const imgExt = ["jpg","jpeg","png","webp","tif","tiff"];
-  const vidExt = ["mp4","mov","m4v","webm","mkv"];
-  if (imgExt.includes(ext)) return "image";
-  if (vidExt.includes(ext)) return "video";
-  return "image";
-}
-
-// IMAGE / VIDEO models
+/************ Model lists ************/
 const IMAGE_MODELS = ["Standard V2","Low Resolution V2","CGI","High Fidelity V2","Text Refine"];
 const VIDEO_MODELS = {
   Proteus:["prob-4"],
@@ -53,46 +75,64 @@ const VIDEO_MODELS = {
   Chronos:["chr-2","chf-3"]
 };
 
+/************ Safe fill/select ************/
 function fillSelect(sel, arr){
-  if (!sel) return;
-  if (!arr || !arr.length) return;
+  if (!sel) { dbg("[UI] select عنصر ناقص"); return; }
+  if (!Array.isArray(arr) || arr.length === 0) return;
+  // لو sel مش موجود سيوصلنا هنا بالفعل
   sel.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join("");
 }
+function kindFromName(name){
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  const imgExt = ["jpg","jpeg","png","webp","tif","tiff"];
+  const vidExt = ["mp4","mov","m4v","webm","mkv"];
+  if (imgExt.includes(ext)) return "image";
+  if (vidExt.includes(ext)) return "video";
+  return "image";
+}
 function fillModelsFor(type){
+  const modelSel  = need("modelSelect");
+  const optionSel = need("optionSelect");
+  const formatSel = need("formatSelect");
+  const fpsTarget = need("fpsTarget");
+  if (!modelSel || !optionSel || !formatSel || !fpsTarget) return;
+
   if (type === "image") {
-    fillSelect($("#modelSelect"), IMAGE_MODELS);
-    $("#optionSelect").innerHTML = `<option value="">(لا يوجد)</option>`;
-    if ($("#formatSelect").value === "mp4") $("#formatSelect").value = "jpeg";
-    $("#fpsTarget").value = "";
-    $("#fpsTarget").disabled = true;
+    fillSelect(modelSel, IMAGE_MODELS);
+    optionSel.innerHTML = `<option value="">(لا يوجد)</option>`;
+    if (formatSel.value === "mp4") formatSel.value = "jpeg";
+    fpsTarget.value = "";
+    fpsTarget.disabled = true;
   } else {
-    fillSelect($("#modelSelect"), Object.keys(VIDEO_MODELS));
-    const first = $("#modelSelect").value || "Proteus";
-    fillSelect($("#optionSelect"), (VIDEO_MODELS[first] || []));
-    $("#formatSelect").value = "mp4";
-    $("#fpsTarget").disabled = false;
+    fillSelect(modelSel, Object.keys(VIDEO_MODELS));
+    const first = modelSel.value || "Proteus";
+    fillSelect(optionSel, VIDEO_MODELS[first] || []);
+    formatSel.value = "mp4";
+    fpsTarget.disabled = false;
   }
 }
 
-// init on load: عرّض موديلات الصور افتراضيًا
+/************ Init after DOM ready ************/
 document.addEventListener("DOMContentLoaded", () => {
+  // تأكد من وجود كل العناصر مرة واحدة
+  const must = ["fileInput","modelSelect","optionSelect","scaleSelect","formatSelect","fpsTarget","enhanceBtn","resetBtn","beforeImg","afterImg","beforeVideo","afterVideo","downloadBtn","bar","statusText"];
+  let missing = must.filter(id => !$(id));
+  if (missing.length) { dbg("[UI] عناصر ناقصة: " + missing.join(", ")); return; }
+
   resetUI(true);
-  fillModelsFor("image");
+  fillModelsFor("image"); // افتراضيًا
 
-  // زرار Reset
-  $("resetBtn").addEventListener("click", () => resetUI(true));
-
-  // تغيير الموديل يُحدّث options في الفيديو
-  $("#modelSelect").addEventListener("change", () => {
+  // عند تغيير الموديل (فيديو) عدّل الخيارات
+  $("modelSelect").addEventListener("change", () => {
     if (!file) return;
     const isVideo = file.type?.startsWith("video") || kindFromName(file.name)==="video";
     if (!isVideo) return;
-    const model = $("#modelSelect").value;
-    fillSelect($("#optionSelect"), VIDEO_MODELS[model] || []);
+    const model = $("modelSelect").value;
+    fillSelect($("optionSelect"), VIDEO_MODELS[model] || []);
   });
 
   // اختيار ملف
-  $("fileInput").addEventListener("change", e => {
+  $("fileInput").addEventListener("change", (e) => {
     resetUI(false);
     file = e.target.files[0];
     if (!file) return;
@@ -106,6 +146,9 @@ document.addEventListener("DOMContentLoaded", () => {
     else { $("beforeVideo").src = url; $("beforeVideo").style.display = "block"; $("beforeVideo").load(); }
   });
 
+  // Reset
+  $("resetBtn").addEventListener("click", () => resetUI(true));
+
   // Enhance
   $("enhanceBtn").addEventListener("click", async () => {
     if (!file) { alert("اختر ملف أولاً"); return; }
@@ -113,11 +156,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     setProgress(5, "جاري الرفع...");
 
-    const model  = $("#modelSelect").value;
-    const option = $("#optionSelect").value;
-    const scale  = $("#scaleSelect").value;
-    const format = $("#formatSelect").value;
-    const fpsT   = $("#fpsTarget").value;
+    const model  = $("modelSelect").value;
+    const option = $("optionSelect").value;
+    const scale  = $("scaleSelect").value;
+    const format = $("formatSelect").value;
+    const fpsT   = $("fpsTarget").value;
 
     const form = new FormData();
     form.append("file", file);
@@ -128,7 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (fpsT) form.append("fps_target", fpsT);
 
     try {
-      if (file.type?.startsWith("image") || kindFromName(file.name)==="image") {
+      const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
+
+      if (isImage) {
         const res = await fetch("/enhance/image", { method:"POST", body:form });
         if (!res.ok) {
           let msg = `HTTP ${res.status}`; try { const j = await res.json(); if (j.error) msg = j.error; } catch {}
@@ -179,7 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 3000);
       }
     } catch (err) {
-      const d = $("debug"); d.style.display="block"; d.textContent="[Fetch Error] " + (err.message || String(err));
+      dbg("[Fetch Error] " + (err.message || String(err)));
       setProgress(0, "خطأ");
     }
   });
