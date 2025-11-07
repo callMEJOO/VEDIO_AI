@@ -7,49 +7,39 @@
 </head>
 <body>
 
-<div class="container">
+<h2>VEDIO_AI — Video & Image Enhancer 🚀</h2>
 
-<h2>VEDIO_AI — AI Upscaler</h2>
+<input type="file" id="fileInput">
 
-<div class="panel">
-    <label class="upload-box">
-        <input type="file" id="fileInput" hidden>
-        اختر صورة / فيديو
-    </label>
+<select id="modelSelect">
+  <option value="Standard V2">Standard V2</option>
+  <option value="Low Resolution">Low Resolution</option>
+  <option value="Lines">Lines</option>
+  <option value="Clear">Clear</option>
+  <option value="Face">Face Recovery</option>
+</select>
 
-    <select id="modelSelect">
-        <option value="Standard V2">Standard</option>
-        <option value="Lines">Lines</option>
-        <option value="Low Resolution">Low Resolution</option>
-    </select>
+<select id="scaleSelect">
+  <option value="1x">1×</option>
+  <option value="2x">2×</option>
+  <option value="4x">4×</option>
+</select>
 
-    <select id="scaleSelect">
-        <option value="2x">2x Upscale</option>
-        <option value="4x">4x Upscale</option>
-    </select>
+<select id="formatSelect">
+  <option value="jpeg">JPEG</option>
+  <option value="png">PNG</option>
+  <option value="webp">WEBP</option>
+  <option value="mp4">MP4 (video)</option>
+</select>
 
-    <button id="enhanceBtn">تشغيل التحسين</button>
-</div>
+<button id="enhanceBtn">Enhance</button>
 
-<div class="preview-container">
-    <div class="box">
-        <h3>Before</h3>
-        <img id="beforeImg" src="">
-    </div>
+<div id="status"></div>
 
-    <div class="box">
-        <h3>After</h3>
-        <img id="afterImg" src="">
-    </div>
-</div>
+<img id="beforeImg">
+<img id="afterImg">
 
-<div class="progress">
-    <div id="bar"></div>
-</div>
-
-<a id="downloadBtn" style="display:none" download="enhanced.jpg">⬇ تنزيل النتيجة</a>
-
-</div>
+<a id="downloadBtn" style="display:none;">Download</a>
 
 <script src="app.js"></script>
 </body>
