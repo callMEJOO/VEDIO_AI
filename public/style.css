@@ -1,6 +1,6 @@
 :root{
   --bg:#0e0f12; --panel:#16181d; --soft:#22252c;
-  --text:#e9ecf1; --muted:#9aa3af; --accent:#5b8cff; --ok:#27c46b;
+  --text:#e9ecf1; --muted:#9aa3af; --accent:#5b8cff;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,system-ui}
