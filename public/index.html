@@ -1,20 +1,19 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>VEDIO_AI — Enhancer</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>VEDIO_AI</h1>
-    <p>Upscale & Enhance (Image/Video)</p>
+    <p>Upscale & Enhance (Image / Video)</p>
   </header>
 
   <section class="controls">
-    <label class="file-btn">
-      اختر ملف
-      <input type="file" id="fileInput" hidden>
+    <label class="file-btn">اختر ملف
+      <input type="file" id="fileInput" hidden />
     </label>
 
     <select id="modelSelect" title="Model">
@@ -38,7 +37,7 @@
       <option value="mp4">MP4 (video)</option>
     </select>
 
-    <button id="enhanceBtn">تشغيل التحسين</button>
+    <button id="enhanceBtn" class="primary">تشغيل التحسين</button>
     <button id="resetBtn" class="ghost">Reset</button>
   </section>
 
@@ -61,7 +60,7 @@
   </section>
 
   <section class="actions">
-    <a id="downloadBtn" href="#" download class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
+    <a id="downloadBtn" class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
   </section>
 
   <script src="app.js"></script>
