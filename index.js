@@ -4,28 +4,29 @@ const multer = require("multer");
 const fs = require("fs");
 const axios = require("axios");
 const FormData = require("form-data");
+const path = require("path");
 
 const app = express();
 
-// static UI
+// UI static
 app.use(express.static("public"));
 
-// quick health
+// صحّة سريعة
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// simple log
+// لوج بسيط
 app.use((req, _res, next) => { console.log(`${req.method} ${req.path}`); next(); });
 
-// temp folder on Render + 512MB cap
+// تخزين مؤقت على Render
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 512 }
+  limits: { fileSize: 1024 * 1024 * 512 } // 512MB
 });
 const safeUnlink = p => { if (p && fs.existsSync(p)) fs.unlink(p, ()=>{}); };
 
+// ---------- IMAGE (Sync) – شغال زي ما هو ----------
 const IMG_CT = { jpeg:"image/jpeg", jpg:"image/jpeg", png:"image/png", webp:"image/webp", tiff:"image/tiff", tif:"image/tiff" };
 
-/* ---------------------- IMAGE (sync) ---------------------- */
 app.post("/enhance/image", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
@@ -60,104 +61,101 @@ app.post("/enhance/image", upload.single("file"), async (req, res) => {
   }
 });
 
-/* ---------------------- VIDEO (async) - robust upload flow ---------------------- */
+// ---------- VIDEO (Async) – الفلو الرسمي الجديد ----------
+/*
+  Flow (Topaz Video API):
+  1) POST  /video/                      -> { requestId, estimates }
+  2) PATCH /video/{id}/accept           -> { uploadId, urls[] }  (multipart PUT)
+  3) PUT   لكل URL في urls[]            -> يرجّع ETag
+  4) PATCH /video/{id}/complete-upload/ -> يبدأ المعالجة
+  5) GET   /video/{id}/status           -> فيه download.url عند الاكتمال
+*/
+
 app.post("/enhance/video", upload.single("file"), async (req, res) => {
   const tmp = req.file?.path;
   try {
     if (!req.file || !req.file.path) {
       return res.status(400).json({ error: "No video file uploaded" });
     }
+
     const {
-      model = "Proteus",
-      model_option,
-      scale = "2x",
-      format = "mp4",
-      fps_target
+      model = "Proteus",      // من الواجهة: Proteus/Artemis/... الخ
+      model_option = "prob-4",// خيار الموديل (أسماءهم زي docs)
+      // scale, fps_target, format ... (اختياري هنا؛ هنسيبه للـ API يقرر الافضل)
     } = req.body;
 
-    // 1) start job
-    const startForm = new FormData();
-    startForm.append("model", model);
-    if (model_option) startForm.append("model_option", model_option);
-    if (scale) startForm.append("scale", scale);
-    if (fps_target) startForm.append("fps_target", fps_target);
-    startForm.append("output_format", format);
+    // -- 1) Create request
+    // نبعت أقل جسم ممكن صالح (filters فقط). ممكن تزود output لاحقًا.
+    const createBody = {
+      filters: [{ model: model_option || "prob-4" }]
+    };
 
-    const start = await axios.post(
-      "https://api.topazlabs.com/video/v1/enhance/async",
-      startForm,
-      { headers: { ...startForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
+    const createResp = await axios.post(
+      "https://api.topazlabs.com/video/",
+      createBody,
+      { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
+    const requestId = createResp.data?.requestId;
+    if (!requestId) throw new Error("Topaz did not return requestId");
 
-    const { process_id, upload_url } = start.data || {};
-    if (!process_id) throw new Error("Topaz did not return process_id");
-
-    // helpers
-    const putToUrl = async (url) => {
-      console.log("TRY PUT upload_url");
-      await axios.put(url, fs.createReadStream(tmp), {
-        headers: { "Content-Type": "application/octet-stream" },
-        maxBodyLength: Infinity, maxContentLength: Infinity
-      });
-    };
-    const postToUpload = async () => {
-      console.log("TRY POST /upload");
-      const up = new FormData();
-      up.append("video", fs.createReadStream(tmp));
-      return axios.post(
-        `https://api.topazlabs.com/video/v1/enhance/${process_id}/upload`,
-        up,
-        { headers: { ...up.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
-          maxBodyLength: Infinity, maxContentLength: Infinity }
-      );
-    };
-
-    // 2) upload: upload_url -> /upload -> status.upload_url
-    let uploaded = false;
-    let lastTried = "";
-
-    try {
-      if (upload_url) {
-        lastTried = `PUT ${upload_url}`;
-        await putToUrl(upload_url);
-        uploaded = true;
-      }
-    } catch (e) {
-      console.error("UPLOAD PUT (start.upload_url) failed:", e?.response?.status || e.message);
+    // -- 2) Accept: يرجّع multipart URLs
+    const acceptResp = await axios.patch(
+      `https://api.topazlabs.com/video/${requestId}/accept`,
+      {},
+      { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+    const { uploadId, urls } = acceptResp.data || {};
+    if (!uploadId || !Array.isArray(urls) || urls.length === 0) {
+      throw new Error("Accept did not return multipart URLs");
     }
 
-    if (!uploaded) {
-      try {
-        lastTried = `POST /enhance/${process_id}/upload`;
-        await postToUpload();
-        uploaded = true;
-      } catch (e) {
-        console.error("UPLOAD POST /upload failed:", e?.response?.status || e.message);
-        if (e?.response?.status === 404) {
-          try {
-            const st = await axios.get(
-              `https://api.topazlabs.com/video/v1/status/${process_id}`,
-              { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
-            );
-            if (st.data?.upload_url) {
-              lastTried = `PUT ${st.data.upload_url} (from status)`;
-              await putToUrl(st.data.upload_url);
-              uploaded = true;
-            }
-          } catch (e2) {
-            console.error("STATUS/PUT (status.upload_url) failed:", e2?.response?.status || e2.message);
-          }
+    // -- 3) Multipart PUT uploads
+    // هنقسم الملف بالتساوي حسب عدد الروابط الراجعة.
+    const stat = fs.statSync(tmp);
+    const totalSize = stat.size;
+    const parts = urls.length;
+    const partSize = Math.ceil(totalSize / parts);
+    const uploadResults = [];
+
+    for (let i = 0; i < parts; i++) {
+      const start = i * partSize;
+      const end = Math.min(totalSize, (i + 1) * partSize) - 1; // شامل
+      const stream = fs.createReadStream(tmp, { start, end });
+
+      // مهم: Content-Length = حجم الجزء
+      const contentLength = end - start + 1;
+
+      const putResp = await axios.put(urls[i], stream, {
+        headers: { "Content-Length": contentLength },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        validateStatus: s => s >= 200 && s < 400 // S3 ممكن يرجّع 200/204
+      });
+
+      // S3 بيرجع ETag في الهيدر
+      const eTag = putResp.headers.etag || putResp.headers.ETag || putResp.headers["etag"];
+      if (!eTag) {
+        console.warn("WARN: Missing ETag for part", i + 1);
+      }
+      uploadResults.push({ partNum: i + 1, eTag: (eTag || "").replace(/"/g, "") });
+    }
+
+    // -- 4) Complete upload (يبدأ المعالجة)
+    await axios.patch(
+      `https://api.topazlabs.com/video/${requestId}/complete-upload/`,
+      { uploadResults },
+      {
+        headers: {
+          "X-API-Key": process.env.TOPAZ_API_KEY,
+          "Content-Type": "application/json"
         }
       }
-    }
+    );
 
-    if (!uploaded) {
-      return res.status(404).json({ error: `Not Found while uploading video (last tried: ${lastTried || "none"})` });
-    }
-
-    res.json({ processId: process_id });
+    // رجّع الـ id للواجهة عشان الـ polling
+    res.json({ processId: requestId });
   } catch (e) {
-    const msg = e?.response?.data || e.message || "Video start/upload error";
+    const msg = e?.response?.data || e.message || "Video flow error";
     console.error("VIDEO ERROR:", msg);
     res.status(400).json({ error: typeof msg === "string" ? msg : JSON.stringify(msg) });
   } finally {
@@ -165,11 +163,11 @@ app.post("/enhance/video", upload.single("file"), async (req, res) => {
   }
 });
 
-/* poll status */
+// ---------- STATUS ----------
 app.get("/status/:id", async (req, res) => {
   try {
     const st = await axios.get(
-      `https://api.topazlabs.com/video/v1/status/${req.params.id}`,
+      `https://api.topazlabs.com/video/${req.params.id}/status`,
       { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
     res.json(st.data);
@@ -179,16 +177,16 @@ app.get("/status/:id", async (req, res) => {
   }
 });
 
-/* download video with attachment */
+// ---------- DOWNLOAD (من signed URL) ----------
 app.get("/video/download/:id", async (req, res) => {
   try {
     const st = await axios.get(
-      `https://api.topazlabs.com/video/v1/status/${req.params.id}`,
+      `https://api.topazlabs.com/video/${req.params.id}/status`,
       { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
-    if (st.data.status !== "completed" || !st.data.output_url) return res.status(425).send("Not ready");
+    const url = st.data?.download?.url;
+    if (!url) return res.status(425).send("Not ready");
 
-    const url = st.data.output_url;
     const filename = `enhanced_${req.params.id}.mp4`;
     const streamResp = await axios.get(url, { responseType: "stream" });
     res.setHeader("Content-Type", "video/mp4");
