@@ -1,45 +1,83 @@
-require('dotenv').config();
-const express = require('express');
-const multer = require('multer');
-const fs = require('fs');
-const axios = require('axios');
-const FormData = require('form-data');
+require("dotenv").config();
+const express = require("express");
+const multer = require("multer");
+const fs = require("fs");
+const axios = require("axios");
+const FormData = require("form-data");
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
-const PORT = process.env.PORT || 3000;
-const TOPAZ_API_KEY = process.env.TOPAZ_API_KEY;
+app.use(express.static("public"));
 
-// Serve the HTML upload form
-app.use(express.static('public'));
+// Multer temp folder
+const upload = multer({ dest: "/tmp/uploads" });
 
-// Enhance video or image endpoint (simplified for image demo)
-app.post('/enhance', upload.single('file'), async (req, res) => {
+// *** IMAGE ENHANCE ***
+app.post("/enhance/image", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).send('No file uploaded');
-
     const form = new FormData();
-    form.append('image', fs.createReadStream(req.file.path));
-    form.append('model', 'Standard V2');
+    form.append("image", fs.createReadStream(req.file.path));
+    form.append("model", req.body.model);
+    form.append("scale", req.body.scale);
+    form.append("output_format", req.body.format);
 
-    const headers = {
-      ...form.getHeaders(),
-      'X-API-Key': TOPAZ_API_KEY
-    };
-
-    const response = await axios.post('https://api.topazlabs.com/image/v1/enhance', form, {
-      headers,
-      responseType: 'arraybuffer'
+    const r = await axios.post("https://api.topazlabs.com/image/v1/enhance", form, {
+      headers: { ...form.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
+      responseType: "arraybuffer"
     });
 
-    res.set('Content-Type', 'image/jpeg');
-    res.send(Buffer.from(response.data, 'binary'));
-
-    fs.unlink(req.file.path, () => {});
+    res.set("Content-Type", "image/jpeg");
+    res.send(Buffer.from(r.data, "binary"));
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Processing error');
+    res.status(500).send("Error");
+  } finally {
+    fs.unlink(req.file.path, () => {});
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// *** VIDEO ENHANCE (ASYNC) ***
+app.post("/enhance/video", upload.single("file"), async (req, res) => {
+  try {
+    const startForm = new FormData();
+    startForm.append("model", req.body.model);
+    startForm.append("scale", req.body.scale);
+    startForm.append("output_format", req.body.format);
+
+    const start = await axios.post(
+      "https://api.topazlabs.com/video/v1/enhance/async",
+      startForm,
+      { headers: { ...startForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+
+    const processId = start.data.process_id;
+
+    const uploadForm = new FormData();
+    uploadForm.append("video", fs.createReadStream(req.file.path));
+
+    await axios.post(
+      `https://api.topazlabs.com/video/v1/enhance/${processId}/upload`,
+      uploadForm,
+      { headers: { ...uploadForm.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+
+    fs.unlink(req.file.path, () => {});
+    res.json({ processId });
+  } catch (e) {
+    res.status(500).send("Video Error");
+  }
+});
+
+// POLL STATUS
+app.get("/status/:id", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const st = await axios.get(
+      `https://api.topazlabs.com/video/v1/status/${id}`,
+      { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+    res.json(st.data);
+  } catch {
+    res.json({ status: "error" });
+  }
+});
+
+app.listen(process.env.PORT || 3000);
