@@ -1,15 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>VEDIO_AI - Topaz Enhancer</title>
+<meta charset="UTF-8">
+<title>VEDIO_AI - AI Upscale</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body style="font-family: sans-serif; text-align: center; padding-top: 40px;">
-  <h1>VEDIO_AI Enhancer</h1>
-  <form action="/enhance" method="POST" enctype="multipart/form-data">
-    <input type="file" name="file" accept="image/*" required>
-    <br><br>
-    <button type="submit">Upload & Enhance</button>
-  </form>
+<body>
+
+<h2>VEDIO_AI 🔥 Upscale & Enhance</h2>
+
+<div class="container">
+    <div class="box">
+        <h3>Before</h3>
+        <img id="beforeImg" src="" alt="">
+    </div>
+
+    <div class="box">
+        <h3>After</h3>
+        <img id="afterImg" src="" alt="">
+    </div>
+</div>
+
+<input type="file" id="fileInput">
+
+<br><br>
+
+<button id="enhanceBtn">Enhance</button>
+
+<div id="progress">
+    <div id="bar"></div>
+</div>
+
+<a id="downloadBtn" style="display:none;">Download Result</a>
+
+<script src="app.js"></script>
 </body>
 </html>
