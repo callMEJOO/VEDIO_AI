@@ -13,31 +13,33 @@
     <p>Upscale & Enhance — Image / Video</p>
   </header>
 
-  <!-- ======= Controls ======= -->
-  <section class="controls">
+  <!-- Debug bar (لو حصل خطأ JS هتشوفه هنا) -->
+  <div id="debug" class="debug" style="display:none"></div>
 
+  <section class="controls">
     <label class="file-btn">اختر ملف
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <!-- Model -->
+    <!-- افتراضياً نعرض موديلات الصور: الباقي يتغير ديناميكياً -->
     <select id="modelSelect" title="Model">
       <option>Standard V2</option>
+      <option>Low Resolution V2</option>
+      <option>CGI</option>
+      <option>High Fidelity V2</option>
+      <option>Text Refine</option>
     </select>
 
-    <!-- Model Option -->
     <select id="optionSelect" title="Model Option (إن وُجد)">
       <option value="">(لا يوجد)</option>
     </select>
 
-    <!-- Scale -->
     <select id="scaleSelect" title="Scale">
       <option value="1x">1×</option>
       <option value="2x" selected>2×</option>
       <option value="4x">4×</option>
     </select>
 
-    <!-- Output Format -->
     <select id="formatSelect" title="Format">
       <option value="jpeg">JPEG (image)</option>
       <option value="png">PNG (image)</option>
@@ -45,23 +47,18 @@
       <option value="mp4">MP4 (video)</option>
     </select>
 
-    <!-- FPS Target for Apollo/Chronos -->
     <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps target (video)" />
 
-    <!-- Actions -->
     <button id="enhanceBtn" class="primary">تشغيل التحسين</button>
     <button id="resetBtn" class="ghost">Reset</button>
   </section>
 
-  <!-- ======= Preview ======= -->
   <section class="preview">
-
     <div class="pane">
       <h3>Before</h3>
       <img id="beforeImg" alt="" />
       <video id="beforeVideo" controls></video>
     </div>
-
     <div class="pane">
       <h3>After</h3>
       <img id="afterImg" alt="" />
@@ -69,17 +66,16 @@
     </div>
   </section>
 
-  <!-- ===== Progress + Status ===== -->
   <section class="status">
     <div class="progress"><div id="bar"></div></div>
     <div id="statusText"></div>
   </section>
 
-  <!-- ===== Download ===== -->
   <section class="actions">
     <a id="downloadBtn" class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
   </section>
 
+  <!-- مهم جدًا: السكربت بعد العناصر -->
   <script src="app.js"></script>
 </body>
 </html>
