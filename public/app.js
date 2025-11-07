@@ -6,11 +6,9 @@ let currentObjectURLs = [];
 const $ = (id) => document.getElementById(id);
 
 function resetUI(hard=false){
-  // إيقاف polling القديم
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   currentProcessId = null;
 
-  // مسح المصادر القديمة
   ["beforeImg","afterImg"].forEach(id => $(id).src = "");
   ["beforeVideo","afterVideo"].forEach(id => {
     const v = $(id);
@@ -19,18 +17,15 @@ function resetUI(hard=false){
     v.load();
   });
 
-  // إخفاء/إظهار المناسب
   $("beforeImg").style.display = "none";
   $("afterImg").style.display  = "none";
   $("beforeVideo").style.display = "none";
   $("afterVideo").style.display  = "none";
   $("downloadBtn").style.display = "none";
 
-  // تقدم/نص
   $("bar").style.width = "0%";
   $("statusText").textContent = "";
 
-  // إلغاء Blob URLs القديمة
   currentObjectURLs.forEach(u => URL.revokeObjectURL(u));
   currentObjectURLs = [];
 
@@ -68,14 +63,13 @@ $("fileInput").addEventListener("change", e => {
   }
 });
 
-/* Reset يدوي */
+/* Reset */
 $("resetBtn").addEventListener("click", () => resetUI(true));
 
-/* تشغيل التحسين */
+/* Enhance */
 $("enhanceBtn").addEventListener("click", async () => {
   if (!file) return alert("اختر ملف أولاً");
 
-  // إلغاء أي عملية قديمة
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   setProgress(5, "جاري الرفع...");
 
@@ -91,12 +85,10 @@ $("enhanceBtn").addEventListener("click", async () => {
 
   try {
     if (file.type.startsWith("image")) {
-      // صورة → endpoint الصورة (يرجع attachment)
       const res = await fetch("/enhance/image", { method:"POST", body:form });
       if (!res.ok) throw new Error("Image request failed");
       setProgress(70, "جاري التحويل...");
 
-      // خُد Blob واعرضه ونزّل مباشرة لو حابب
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       currentObjectURLs.push(url);
@@ -105,39 +97,39 @@ $("enhanceBtn").addEventListener("click", async () => {
       $("afterImg").style.display = "block";
       setProgress(100, "تم");
 
-      // زر تنزيل حقيقي (نفس البيانات)
       const a = $("downloadBtn");
       a.href = url;
       a.download = `enhanced.${format}`;
       a.style.display = "inline-block";
 
     } else {
-      // فيديو → async job
       const res = await fetch("/enhance/video", { method:"POST", body:form });
-      if (!res.ok) throw new Error("Video request failed");
+      if (!res.ok) {
+        let errTxt = "Video request failed";
+        try { const j = await res.json(); errTxt = j.error || errTxt; } catch {}
+        alert(errTxt);
+        setProgress(0, "خطأ");
+        return;
+      }
       const { processId } = await res.json();
       currentProcessId = processId;
 
       setProgress(25, "تم الرفع. جاري المعالجة على السحابة...");
 
-      // Polling كل 3 ثواني
       pollTimer = setInterval(async () => {
         try {
           const s = await fetch(`/status/${currentProcessId}`).then(r => r.json());
-          // تحديث نص التقدم (لو API بيرجع نسبة—هنا بنستدل بالحالة)
           const st = (s.status || "").toLowerCase();
 
-          if (st === "queued")  setProgress(35, "في قائمة الانتظار...");
+          if (st === "queued")     setProgress(35, "في قائمة الانتظار...");
           if (st === "processing") setProgress(55, "يتم المعالجة...");
           if (st === "completed") {
             clearInterval(pollTimer); pollTimer = null;
             setProgress(100, "تم المعالجة ✅");
 
-            // تنزيل/عرض من السيرفر علشان Content-Disposition يشتغل
             const dlUrl = `/video/download/${currentProcessId}`;
-            // للعرض داخل الموقع: جلب Blob أولاً
-            const blob = await fetch(dlUrl).then(r => r.blob());
-            const url  = URL.createObjectURL(blob);
+            const blob  = await fetch(dlUrl).then(r => r.blob());
+            const url   = URL.createObjectURL(blob);
             currentObjectURLs.push(url);
 
             $("afterVideo").src = url;
@@ -145,7 +137,7 @@ $("enhanceBtn").addEventListener("click", async () => {
             $("afterVideo").load();
 
             const a = $("downloadBtn");
-            a.href = dlUrl; // التحميل المباشر ملف حقيقي
+            a.href = dlUrl; // تنزيل حقيقي
             a.setAttribute("download", `enhanced_${currentProcessId}.mp4`);
             a.style.display = "inline-block";
           }
@@ -164,6 +156,6 @@ $("enhanceBtn").addEventListener("click", async () => {
   } catch (err) {
     console.error(err);
     setProgress(0, "خطأ");
-    alert(err.message || "خطأ غير متوقع");
+    alert(err.message || "Unexpected error");
   }
 });
