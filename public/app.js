@@ -14,15 +14,14 @@ function toast(msg, type="ok"){
   setTimeout(()=>{ t.hidden=true; }, 3800);
 }
 
-// Progress
+// Progress & overlay
 function setProgress(p,t){ const b=$("bar"); if(b) b.style.width=`${p}%`; const s=$("statusText"); if(s&&t) s.textContent=t; }
 function showOverlay(show=true){ const o=$("loaderOverlay"); if(!o) return; o.hidden = !show; }
 
 // Reset
 function resetUI(hard=false){
-  ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el) el.src=""; });
+  ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el) el.src=""; el && (el.style.display="none"); });
   ["beforeVideo","afterVideo"].forEach(i=>{ const v=$(i); if(!v) return; v.pause(); v.removeAttribute("src"); v.load(); v.style.display="none"; });
-  ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el) el.style.display="none"; });
   const dl=$("downloadBtn"); if(dl) dl.style.display="none";
   setProgress(0,""); revokeAll(); showOverlay(false);
   if(hard){ const fi=$("fileInput"); if(fi) fi.value=""; file=null; currentProcessId=null; }
@@ -59,7 +58,15 @@ function friendly(msg) {
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{
-  resetUI(true); fillModelsFor("image");
+  showOverlay(false);          // ✅ تأكيد إخفاء الأوفرلاي عند أول تحميل
+  resetUI(true);
+  fillModelsFor("image");
+
+  // أمان إضافي عند الرجوع من الكاش/التبويب
+  window.addEventListener("pageshow", () => showOverlay(false));
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && !currentProcessId) showOverlay(false);
+  });
 
   $("modelSelect").addEventListener("change", ()=>{
     if(!file) return;
@@ -138,7 +145,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
 
             if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
               setProgress(95,"جاري تجهيز الفيديو للعرض...");
-              showOverlay(true);
+              showOverlay(true); // يفتح هنا فقط
               try {
                 const dlUrl = `/video/download/${currentProcessId}`;
                 const blob = await fetch(dlUrl).then(r => r.blob());
@@ -156,10 +163,12 @@ document.addEventListener("DOMContentLoaded", ()=>{
               } catch {
                 if (s?.download?.url) {
                   const a = $("downloadBtn");
-                  a.href = s.download.url; a.removeAttribute("download"); a.style.display="inline-block";
+                  a.href = s.download.url;
+                  a.removeAttribute("download");
+                  a.style.display="inline-block";
                 }
               } finally {
-                showOverlay(false);
+                showOverlay(false); // يتقفل بعد التجهيز
               }
               return;
             }
