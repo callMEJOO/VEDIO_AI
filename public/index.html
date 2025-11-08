@@ -11,7 +11,6 @@
   <!-- Top App Bar -->
   <header class="topbar">
     <div class="brand">
-      <!-- Inline logo -->
       <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
         <defs>
           <linearGradient id="uvg" x1="0" y1="0" x2="1" y2="1">
@@ -19,9 +18,7 @@
             <stop offset="1" stop-color="#8a5bff"/>
           </linearGradient>
         </defs>
-        <text x="0" y="23" font-family="Inter, Segoe UI, Arial" font-weight="800" font-size="22" fill="url(#uvg)">
-          UltraVision
-        </text>
+        <text x="0" y="23" font-family="Inter, Segoe UI, Arial" font-weight="800" font-size="22" fill="url(#uvg)">UltraVision</text>
         <text x="108" y="23" font-family="Inter" font-weight="700" font-size="14" fill="#c8d2ff">AI</text>
       </svg>
       <span class="subtitle">Upscale &amp; Enhance — Image / Video</span>
@@ -83,7 +80,7 @@
     <div id="statusText"></div>
   </section>
 
-  <!-- Loader overlay -->
+  <!-- Loader overlay (hidden by default) -->
   <div id="loaderOverlay" class="overlay" hidden>
     <div class="spinner"></div>
     <div class="overlay-text">جاري تجهيز الفيديو للعرض...</div>
@@ -98,9 +95,7 @@
     <span>© <span id="year"></span> UltraVision AI</span>
   </footer>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
   <script src="app.js"></script>
 </body>
 </html>
