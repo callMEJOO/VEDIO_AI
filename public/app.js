@@ -16,11 +16,16 @@ function toast(msg, type="ok"){
 
 // Progress & overlay
 function setProgress(p,t){ const b=$("bar"); if(b) b.style.width=`${p}%`; const s=$("statusText"); if(s&&t) s.textContent=t; }
-function showOverlay(show=true){ const o=$("loaderOverlay"); if(!o) return; o.hidden = !show; }
+function showOverlay(show=true){
+  const o = $("loaderOverlay");
+  if (!o) return;
+  if (show) o.classList.add("show");
+  else o.classList.remove("show");
+}
 
 // Reset
 function resetUI(hard=false){
-  ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el) el.src=""; el && (el.style.display="none"); });
+  ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el){ el.src=""; el.style.display="none"; } });
   ["beforeVideo","afterVideo"].forEach(i=>{ const v=$(i); if(!v) return; v.pause(); v.removeAttribute("src"); v.load(); v.style.display="none"; });
   const dl=$("downloadBtn"); if(dl) dl.style.display="none";
   setProgress(0,""); revokeAll(); showOverlay(false);
@@ -58,11 +63,10 @@ function friendly(msg) {
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{
-  showOverlay(false);          // ✅ تأكيد إخفاء الأوفرلاي عند أول تحميل
+  showOverlay(false);            // تأكيد الإغلاق عند أول تحميل
   resetUI(true);
   fillModelsFor("image");
 
-  // أمان إضافي عند الرجوع من الكاش/التبويب
   window.addEventListener("pageshow", () => showOverlay(false));
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && !currentProcessId) showOverlay(false);
@@ -143,12 +147,37 @@ document.addEventListener("DOMContentLoaded", ()=>{
               if (stxt === "processing") setProgress(55, "يتم المعالجة...");
             }
 
+            // ======= انتهت المعالجة =======
             if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
               setProgress(95,"جاري تجهيز الفيديو للعرض...");
-              showOverlay(true); // يفتح هنا فقط
+              showOverlay(true);
+
               try {
+                // ✅ استخدم رابط Topaz المباشر أولاً لعرض سريع
+                if (s?.download?.url) {
+                  const direct = s.download.url;
+                  const v = $("afterVideo");
+                  v.crossOrigin = "anonymous";
+                  v.src = direct;
+                  v.style.display = "block";
+                  v.load();
+
+                  const a = $("downloadBtn");
+                  a.href = direct;
+                  a.removeAttribute("download");
+                  a.style.display = "inline-block";
+
+                  setProgress(100,"جاهز ✅");
+                  toast("تم معالجة الفيديو — تم فتحه مباشرة من السحابة");
+                  showOverlay(false);
+                  return;
+                }
+
+                // Fallback: حمّل عبر السيرفر (Blob)
                 const dlUrl = `/video/download/${currentProcessId}`;
-                const blob = await fetch(dlUrl).then(r => r.blob());
+                const resp = await fetch(dlUrl);
+                if (!resp.ok) throw new Error(`download proxy failed: ${resp.status}`);
+                const blob = await resp.blob();
                 const url  = URL.createObjectURL(blob);
                 currentObjectURLs.push(url);
                 $("afterVideo").src = url;
@@ -160,19 +189,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 a.style.display = "inline-block";
                 setProgress(100,"جاهز ✅");
                 toast("تم معالجة الفيديو بنجاح");
-              } catch {
-                if (s?.download?.url) {
-                  const a = $("downloadBtn");
-                  a.href = s.download.url;
-                  a.removeAttribute("download");
-                  a.style.display="inline-block";
-                }
+              } catch (err) {
+                toast("تعذر عرض الفيديو تلقائيًا: " + (err?.message||"unknown"), "error");
               } finally {
-                showOverlay(false); // يتقفل بعد التجهيز
+                showOverlay(false);
               }
               return;
             }
 
+            // حالات الفشل
             const stLower = (s?.status || "").toLowerCase();
             if (stLower === "failed" || stLower === "error" || s?.error) {
               setProgress(0, "فشل المعالجة");
@@ -181,6 +206,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
               return;
             }
 
+            // مهلة قصوى
             if (Date.now() - pollStart > hardTimeoutMs) {
               setProgress(0, "انتهت المهلة");
               toast("المعالجة تأخرت جدًا. جرّب فيديو أقصر أو أعد المحاولة لاحقًا.","error");
@@ -188,6 +214,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
               return;
             }
 
+            // backoff تدريجي حتى 15s
             pollDelay = Math.min(pollDelay * 1.5, pollMaxDelay);
             setTimeout(tick, pollDelay);
           } catch (err) {
