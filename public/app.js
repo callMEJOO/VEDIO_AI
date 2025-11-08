@@ -1,4 +1,4 @@
-// debug bar
+// debug bar (اختياري لو عندك عنصر #debug)
 const dbg = (msg) => { const d = document.getElementById("debug"); if (!d) return; d.style.display="block"; d.textContent = msg; };
 window.addEventListener("error", (e)=>dbg("[JS Error] " + (e.error?.message || e.message || "unknown")));
 
@@ -12,7 +12,7 @@ function resetUI(hard=false){
   currentProcessId=null;
   ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el) el.src=""; });
   ["beforeVideo","afterVideo"].forEach(i=>{ const v=$(i); if(!v) return; v.pause(); v.removeAttribute("src"); v.load(); });
-  ["beforeImg","afterImg","beforeVideo","afterVideo","downloadBtn"].forEach(i=>{ const el=$(i); if(el) el.style.display = i==="downloadBtn"?"none":"none"; });
+  ["beforeImg","afterImg","beforeVideo","afterVideo","downloadBtn"].forEach(i=>{ const el=$(i); if(el) el.style.display = "none"; });
   setProgress(0,""); revokeAll(); if(hard){ const fi=$("fileInput"); if(fi) fi.value=""; file=null; }
 }
 function kindFromName(name){ const ext=(name.split(".").pop()||"").toLowerCase(); const imgs=["jpg","jpeg","png","webp","tif","tiff"]; const vids=["mp4","mov","m4v","webm","mkv"]; if(imgs.includes(ext))return"image"; if(vids.includes(ext))return"video"; return"image"; }
@@ -80,21 +80,79 @@ document.addEventListener("DOMContentLoaded", ()=>{
         if(!res.ok){ let msg=`HTTP ${res.status}`; try{const j=await res.json(); if(j.error) msg=j.error;}catch{} alert("Video failed: "+msg); setProgress(0,"خطأ"); return; }
         const {processId}=await res.json(); currentProcessId=processId; setProgress(25,"تم الرفع. جاري المعالجة على السحابة...");
 
-        pollTimer=setInterval(async()=>{
-          try{
-            const s=await fetch(`/status/${currentProcessId}`).then(r=>r.json()); const st=(s.status||"").toLowerCase();
-            if(st==="queued") setProgress(35,"في قائمة الانتظار...");
-            if(st==="processing") setProgress(55,"يتم المعالجة...");
-            if(st==="completed"){
-              clearInterval(pollTimer); pollTimer=null; setProgress(100,"تم المعالجة ✅");
-              const dlUrl=`/video/download/${currentProcessId}`;
-              const blob=await fetch(dlUrl).then(r=>r.blob()); const url=URL.createObjectURL(blob); currentObjectURLs.push(url);
-              $("afterVideo").src=url; $("afterVideo").style.display="block"; $("afterVideo").load();
-              const a=$("downloadBtn"); a.href=dlUrl; a.setAttribute("download",`enhanced_${currentProcessId}.mp4`); a.style.display="inline-block";
+        // ===== Polling أذكى مع backoff ومهلة قصوى + التقاط download.url =====
+        let pollStart = Date.now();
+        let pollDelay = 2000;       // يبدأ بـ 2s
+        const pollMaxDelay = 15000; // حد أقصى 15s
+        const hardTimeoutMs = 15 * 60 * 1000; // 15 دقيقة
+
+        async function tick() {
+          try {
+            const s = await fetch(`/status/${currentProcessId}`).then(r => r.json());
+
+            // تقدّم إن وجد
+            const pct = Number(s?.progress?.percent || s?.progress || 0);
+            if (!isNaN(pct) && pct > 0 && pct <= 100) {
+              const barPct = Math.max(30, Math.min(95, Math.floor(pct)));
+              setProgress(barPct, "يتم المعالجة..." + (pct ? ` (${barPct}%)` : ""));
+            } else {
+              const stxt = (s?.status || "processing").toLowerCase();
+              if (stxt === "queued") setProgress(35, "في قائمة الانتظار...");
+              if (stxt === "processing") setProgress(55, "يتم المعالجة...");
             }
-            if(st==="failed" || st==="error"){ clearInterval(pollTimer); pollTimer=null; setProgress(0,"فشل المعالجة"); alert("Processing failed. جرّب MP4 H.264 قصير أو موديل آخر."); }
-          }catch{ clearInterval(pollTimer); pollTimer=null; setProgress(0,"خطأ في الاستعلام"); }
-        },3000);
+
+            // النتيجة جاهزة: إما status=completed أو download.url موجود
+            if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
+              setProgress(100, "تم المعالجة ✅");
+              try {
+                // جرّب التنزيل عبر الخادم
+                const dlUrl = `/video/download/${currentProcessId}`;
+                const blob = await fetch(dlUrl).then(r => r.blob());
+                const url  = URL.createObjectURL(blob);
+                currentObjectURLs.push(url);
+                $("afterVideo").src = url;
+                $("afterVideo").style.display = "block";
+                $("afterVideo").load();
+                const a = $("downloadBtn");
+                a.href = dlUrl;
+                a.setAttribute("download", `enhanced_${currentProcessId}.mp4`);
+                a.style.display = "inline-block";
+              } catch {
+                // fallback: افتح signed URL مباشرة
+                if (s?.download?.url) {
+                  const a = $("downloadBtn");
+                  a.href = s.download.url;
+                  a.removeAttribute("download");
+                  a.style.display = "inline-block";
+                }
+              }
+              return;
+            }
+
+            // حالات فشل
+            const stLower = (s?.status || "").toLowerCase();
+            if (stLower === "failed" || stLower === "error" || s?.error) {
+              setProgress(0, "فشل المعالجة");
+              alert("Processing failed: " + (s?.error || stLower));
+              return;
+            }
+
+            // مهلة قصوى
+            if (Date.now() - pollStart > hardTimeoutMs) {
+              setProgress(0, "انتهت المهلة");
+              alert("المعالجة تأخرت جدًا. جرّب فيديو أقصر أو أعد المحاولة لاحقًا.");
+              return;
+            }
+
+            // backoff تدريجي حتى 15s
+            pollDelay = Math.min(pollDelay * 1.5, pollMaxDelay);
+            setTimeout(tick, pollDelay);
+          } catch (err) {
+            setProgress(0, "خطأ في الاستعلام");
+            alert("Status request error: " + (err?.message || "unknown"));
+          }
+        }
+        tick();
       }
     }catch(err){ dbg("[Fetch Error] "+(err.message||String(err))); setProgress(0,"خطأ"); }
   });
