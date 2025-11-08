@@ -34,12 +34,10 @@
   </header>
 
   <section class="controls">
-    <!-- زرار اختيار الملف + input فوقه شفاف -->
-    <label id="pickFile" class="file" data-i18n="pick_file">اختر ملف
-      <input type="file" id="fileInput" />
-    </label>
-    <!-- زر إضافي صريح لفتح الـ picker (fallback) -->
-    <button id="pickBtn" class="btn btn-accent" style="min-width:140px">اختيار ملف</button>
+    <!-- ✅ زر واحد فقط لفتح المُلتقط -->
+    <button id="pickBtn" type="button" class="btn btn-accent" style="min-width:140px" data-i18n="pick_file">اختيار ملف</button>
+    <!-- ✅ input مخفي خارج الشاشة (مش جوّه label) -->
+    <input type="file" id="fileInput" class="visually-hidden" accept="image/*,video/*" />
 
     <select id="modelSelect" title="الموديل"></select>
     <select id="optionSelect" title="خيار الموديل"><option value="" data-i18n="none">(لا يوجد)</option></select>
@@ -57,7 +55,7 @@
       <option value="mp4">MP4</option>
     </select>
 
-    <!-- FPS ثابت بالقيم المطلوبة -->
+    <!-- ✅ FPS ثابت: 30 / 60 / 90 / 120 -->
     <select id="fpsTarget" title="FPS">
       <option value="">FPS</option>
       <option value="30">30</option>
