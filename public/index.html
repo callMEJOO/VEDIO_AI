@@ -1,77 +1,106 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <title>VEDIO_AI — Enhancer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>UltraVision AI — تحسين الفيديو والصور</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%235b8cff'/%3E%3Cstop offset='1' stop-color='%238a5bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect rx='28' ry='28' width='128' height='128' fill='%23111519'/%3E%3Cpath d='M22 64c0-23 19-42 42-42s42 19 42 42-19 42-42 42S22 87 22 64zm17 0a25 25 0 1050 0 25 25 0 00-50 0z' fill='url(%23g)'/%3E%3Ccircle cx='64' cy='64' r='11' fill='%23fff'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 </head>
 <body>
-  <header>
-    <h1>VEDIO_AI</h1>
-    <p>Upscale & Enhance — Image / Video</p>
+  <!-- Top App Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <!-- Inline logo -->
+      <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="uvg" x1="0" y1="0" x2="1" y2="1">
+            <stop stop-color="#5b8cff"/>
+            <stop offset="1" stop-color="#8a5bff"/>
+          </linearGradient>
+        </defs>
+        <text x="0" y="23" font-family="Inter, Segoe UI, Arial" font-weight="800" font-size="22" fill="url(#uvg)">
+          UltraVision
+        </text>
+        <text x="108" y="23" font-family="Inter" font-weight="700" font-size="14" fill="#c8d2ff">AI</text>
+      </svg>
+      <span class="subtitle">Upscale &amp; Enhance — Image / Video</span>
+    </div>
+    <nav class="actions-bar">
+      <a id="downloadBtn" class="btn btn-accent" style="display:none">⬇ تنزيل النتيجة</a>
+      <button id="resetBtn" class="btn btn-ghost">إعادة ضبط</button>
+    </nav>
   </header>
 
-  <div id="debug" class="debug" style="display:none"></div>
-
+  <!-- Controls -->
   <section class="controls">
-    <label class="file-btn">اختر ملف
+    <label class="file">
+      اختر ملف
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <select id="modelSelect" title="Model">
-      <option>Standard V2</option>
-      <option>Low Resolution V2</option>
-      <option>CGI</option>
-      <option>High Fidelity V2</option>
-      <option>Text Refine</option>
-    </select>
+    <select id="modelSelect" title="الموديل"></select>
 
-    <select id="optionSelect" title="Model Option (إن وُجد)">
+    <select id="optionSelect" title="خيار الموديل">
       <option value="">(لا يوجد)</option>
     </select>
 
-    <select id="scaleSelect" title="Scale">
+    <select id="scaleSelect" title="التكبير">
       <option value="1x">1×</option>
       <option value="2x" selected>2×</option>
       <option value="4x">4×</option>
     </select>
 
-    <select id="formatSelect" title="Format">
-      <option value="jpeg">JPEG (image)</option>
-      <option value="png">PNG (image)</option>
-      <option value="webp">WEBP (image)</option>
-      <option value="mp4">MP4 (video)</option>
+    <select id="formatSelect" title="صيغة الخرج">
+      <option value="jpeg">JPEG (صورة)</option>
+      <option value="png">PNG (صورة)</option>
+      <option value="webp">WEBP (صورة)</option>
+      <option value="mp4">MP4 (فيديو)</option>
     </select>
 
-    <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps target (video)" />
+    <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps الهدف (فيديو)" />
 
-    <button id="enhanceBtn" class="primary">تشغيل التحسين</button>
-    <button id="resetBtn" class="ghost">Reset</button>
+    <button id="enhanceBtn" class="btn btn-accent">تشغيل التحسين</button>
   </section>
 
-  <section class="preview">
-    <div class="pane">
-      <h3>Before</h3>
+  <!-- Previews -->
+  <main class="preview">
+    <section class="pane">
+      <h3>قبل</h3>
       <img id="beforeImg" alt="" />
-      <video id="beforeVideo" controls></video>
-    </div>
-    <div class="pane">
-      <h3>After</h3>
+      <video id="beforeVideo" controls playsinline></video>
+    </section>
+    <section class="pane">
+      <h3>بعد</h3>
       <img id="afterImg" alt="" />
-      <video id="afterVideo" controls></video>
-    </div>
-  </section>
+      <video id="afterVideo" controls playsinline></video>
+    </section>
+  </main>
 
+  <!-- Status -->
   <section class="status">
     <div class="progress"><div id="bar"></div></div>
     <div id="statusText"></div>
   </section>
 
-  <section class="actions">
-    <a id="downloadBtn" class="primary" style="display:none;">⬇ تنزيل النتيجة</a>
-  </section>
+  <!-- Loader overlay -->
+  <div id="loaderOverlay" class="overlay" hidden>
+    <div class="spinner"></div>
+    <div class="overlay-text">جاري تجهيز الفيديو للعرض...</div>
+  </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast" hidden></div>
+
+  <div id="debug" class="debug" style="display:none"></div>
+
+  <footer class="footer">
+    <span>© <span id="year"></span> UltraVision AI</span>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
