@@ -1,4 +1,4 @@
-// =================== UltraVision App (i18n + % UI + safe bindings + single file picker) ===================
+// =================== UltraVision App (i18n + % UI + polling + uploader/drag&drop) ===================
 const dbg = (msg) => { const d = document.getElementById("debug"); if (!d) return; d.style.display="block"; d.textContent = msg; };
 window.addEventListener("error", (e)=>dbg("[JS Error] " + (e.error?.message || e.message || "unknown")));
 
@@ -20,7 +20,6 @@ const I18N = {
     before: "قبل",
     after: "بعد",
     overlay_preparing: "جاري تجهيز الفيديو...",
-    fps_placeholder: "Target FPS (Video)",
     uploading: "جاري الرفع...",
     queued: "في قائمة الانتظار...",
     processing: "يتم المعالجة...",
@@ -44,7 +43,6 @@ const I18N = {
     before: "Before",
     after: "After",
     overlay_preparing: "Preparing video...",
-    fps_placeholder: "Target FPS (Video)",
     uploading: "Uploading...",
     queued: "Queued...",
     processing: "Processing...",
@@ -67,10 +65,6 @@ function applyLang(){
     const key = el.getAttribute("data-i18n");
     if (dict[key]) el.textContent = dict[key];
   });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-    const key = el.getAttribute("data-i18n-ph");
-    if (dict[key]) el.setAttribute("placeholder", dict[key]);
-  });
   document.documentElement.setAttribute("lang", LANG);
   document.documentElement.setAttribute("dir", LANG === "ar" ? "rtl" : "ltr");
 }
@@ -89,30 +83,21 @@ function setProgress(p,t){
   const bar=$("bar"); if(bar) bar.style.width=`${pNum}%`;
   const s=$("statusText"); if(s&&t) s.textContent=t;
   const pct=$("pctLabel"); if(pct) pct.textContent = `${pNum}%`;
-  const op=$("overlayPct");
-  const over = $("loaderOverlay");
+  const op=$("overlayPct"); const over = $("loaderOverlay");
   if(op && over && over.classList.contains("show")) op.textContent = `${pNum}%`;
 }
 function showOverlay(show=true){
   const o = $("loaderOverlay"); if (!o) return;
-  if (show) {
-    o.removeAttribute("hidden");
-    o.style.display = "flex";
-    o.setAttribute("aria-hidden","false");
-    o.classList.add("show");
-  } else {
-    o.classList.remove("show");
-    o.setAttribute("aria-hidden","true");
-    o.style.display = "none";
-    o.setAttribute("hidden","hidden");
-  }
+  if (show) { o.removeAttribute("hidden"); o.style.display="flex"; o.setAttribute("aria-hidden","false"); o.classList.add("show"); }
+  else { o.classList.remove("show"); o.setAttribute("aria-hidden","true"); o.style.display="none"; o.setAttribute("hidden","hidden"); }
 }
 
 // -------------- Reset UI --------------
 function resetUI(hard=false){
   ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el){ el.src=""; el.style.display="none"; } });
   ["beforeVideo","afterVideo"].forEach(i=>{ const v=$(i); if(!v) return; v.pause(); v.removeAttribute("src"); v.load(); v.style.display="none"; });
-  const dl=$("downloadBtn"); if(dl) dl.style.display="none";
+  const dl1=$("downloadBtn"), dl2=$("downloadBtn2");
+  if(dl1) dl1.style.display="none"; if(dl2) dl2.style.display="none";
   setProgress(0,""); revokeAll(); showOverlay(false);
   if(hard){ const fi=$("fileInput"); if(fi) fi.value=""; file=null; currentProcessId=null; localStorage.removeItem(STORAGE_KEY); }
 }
@@ -129,7 +114,7 @@ const VIDEO_MODELS={
   Theia:["thd-3","thf-4"], Dione:["ddv-3","dtd-4","dtds-2","dtv-4","dtvs-2"],
   Iris:["Iris-3"], Themis:["thm-2"], Apollo:["apo-8","apf-2"], Chronos:["chr-2","chf-3"]
 };
-function fillSelect(sel, arr){ if(!sel||!arr?.length)return; sel.innerHTML = arr.map(v=>`<option value="${v}">${v}</option>`).join(""); }
+function fillSelect(sel, arr){ if(!sel||!arr?.length){ if(sel) sel.innerHTML=""; return; } sel.innerHTML = arr.map(v=>`<option value="${v}">${v}</option>`).join(""); }
 function fillModelsFor(type){
   const ms=$("modelSelect"), os=$("optionSelect"), fs=$("formatSelect"), fps=$("fpsTarget");
   if(!ms||!os||!fs||!fps){ dbg("[UI] عناصر ناقصة"); return; }
@@ -140,9 +125,9 @@ function fillModelsFor(type){
 // -------------- Friendly errors --------------
 function friendly(msg) {
   const s = String(msg||"").toLowerCase();
-  if (s.includes("insufficient credits")) return LANG==="ar" ? "رصيد الـ API خلص. اشحن الكريديت من حساب Topaz ثم جرّب تاني." : "Insufficient API credits. Top up in your Topaz account and retry.";
+  if (s.includes("insufficient credits")) return LANG==="ar" ? "رصيد الـ API خلص. اشحن الكريديت من حساب Topaz ثم جرّب تاني." : "Insufficient API credits. Top up and retry.";
   if (s.includes("unauthorized") || s.includes("401")) return LANG==="ar" ? "مفتاح الـ API غير صحيح أو انتهى." : "API key invalid or expired.";
-  if (s.includes("429") || s.includes("rate")) return LANG==="ar" ? "السيرفر مشغول/محدودية المعدل — حاول بعد لحظات." : "Server busy / rate limited — try again shortly.";
+  if (s.includes("429") || s.includes("rate")) return LANG==="ar" ? "السيرفر مشغول/محدودية المعدل — حاول بعد لحظات." : "Server busy / rate limited — try again.";
   if (s.includes("file") && s.includes("size")) return LANG==="ar" ? "حجم الملف كبير. جرّب مقطع أقصر." : "File too large. Try a shorter clip.";
   return "";
 }
@@ -150,8 +135,7 @@ function friendly(msg) {
 // -------------- Polling (shared) --------------
 async function startPolling(processId, resume=false){
   currentProcessId = processId;
-  if (resume) setProgress(35, I18N[LANG].queued);
-  else setProgress(25, I18N[LANG].uploading);
+  setProgress(resume?35:25, resume?I18N[LANG].queued:I18N[LANG].uploading);
 
   let pollDelay = 2000;
   const pollMaxDelay = 15000;
@@ -172,41 +156,43 @@ async function startPolling(processId, resume=false){
         if (stxt === "processing") setProgress(55, I18N[LANG].processing);
       }
 
-      // ===== Completed =====
       if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
         setProgress(95, I18N[LANG].overlay_preparing);
         const ovText = $("overlayText"); if (ovText) ovText.textContent = I18N[LANG].overlay_preparing;
         showOverlay(true);
         try {
           const v = $("afterVideo");
-          const a = $("downloadBtn");
+          const a1 = $("downloadBtn"), a2=$("downloadBtn2");
+          const showDL = (href, dlName=null)=>{
+            [a1,a2].forEach(a=>{
+              if(!a) return;
+              a.href = href;
+              if (dlName) a.setAttribute("download", dlName); else a.removeAttribute("download");
+              a.style.display="inline-block";
+            });
+          };
 
           if (s?.download?.url) {
             const direct = s.download.url;
             let played = false;
-
             v.src = direct; v.style.display="block"; v.load();
-            const tryPlay = new Promise((resolve) => {
-              const timer = setTimeout(()=>resolve(false), 3000);
-              v.onloadeddata = ()=>{clearTimeout(timer); resolve(true);};
-              v.onerror = ()=>{clearTimeout(timer); resolve(false);};
+            const ok = await new Promise(res=>{
+              const t=setTimeout(()=>res(false),3000);
+              v.onloadeddata=()=>{clearTimeout(t);res(true)};
+              v.onerror=()=>{clearTimeout(t);res(false)};
             });
-            played = await tryPlay;
-
+            played = ok;
             if (!played) {
-              // Blob fallback
               const resp = await fetch(direct);
               const blob = await resp.blob();
               const url  = URL.createObjectURL(blob);
               currentObjectURLs.push(url);
               v.src = url; v.load();
             }
-
-            if (a){ a.href = direct; a.removeAttribute("download"); a.style.display = "inline-block"; }
+            showDL(direct,null);
             setProgress(100, I18N[LANG].ready);
             toast(I18N[LANG].processed_direct);
           } else {
-            // Proxy fallback
             const dlUrl = `/video/download/${currentProcessId}`;
             const resp = await fetch(dlUrl);
             if (!resp.ok) throw new Error(`download proxy failed: ${resp.status}`);
@@ -214,7 +200,7 @@ async function startPolling(processId, resume=false){
             const url  = URL.createObjectURL(blob);
             currentObjectURLs.push(url);
             v.src = url; v.style.display = "block"; v.load();
-            if (a){ a.href = dlUrl; a.setAttribute("download", `enhanced_${currentProcessId}.mp4`); a.style.display="inline-block"; }
+            showDL(dlUrl, `enhanced_${currentProcessId}.mp4`);
             setProgress(100, I18N[LANG].ready);
             toast(I18N[LANG].processed_ok);
           }
@@ -228,7 +214,6 @@ async function startPolling(processId, resume=false){
         return;
       }
 
-      // Failed
       const stLower = (s?.status || "").toLowerCase();
       if (stLower === "failed" || stLower === "error" || s?.error) {
         setProgress(0, LANG==="ar"?"فشل المعالجة":"Processing failed");
@@ -239,7 +224,6 @@ async function startPolling(processId, resume=false){
         return;
       }
 
-      // Timeout
       if (Date.now() - startedAt > hardTimeoutMs) {
         setProgress(0, LANG==="ar"?"انتهت المهلة":"Timed out");
         toast(I18N[LANG].slow_processing,"error");
@@ -247,7 +231,6 @@ async function startPolling(processId, resume=false){
         return;
       }
 
-      // backoff
       pollDelay = Math.min(pollDelay * 1.5, pollMaxDelay);
       setTimeout(tick, pollDelay);
     }catch(_err){
@@ -259,64 +242,62 @@ async function startPolling(processId, resume=false){
   tick();
 }
 
-// =================== Init (safe bindings + single picker) ===================
+// =================== Init ===================
 document.addEventListener("DOMContentLoaded", ()=>{
-  // لغة مخزّنة؟
   const savedLang = localStorage.getItem("uv_lang");
   if (savedLang) { LANG = savedLang; }
   applyLang();
-  const selLangEl = $("langSelect");
-  if (selLangEl) selLangEl.value = LANG;
+  const selLangEl = $("langSelect"); if (selLangEl) selLangEl.value = LANG;
 
-  // اقفل الأوفرلاي لحظة الدخول
   const o = $("loaderOverlay");
   if (o){ o.classList.remove("show"); o.setAttribute("aria-hidden","true"); o.style.display="none"; o.setAttribute("hidden","hidden"); }
 
   resetUI(true);
   fillModelsFor("image");
 
-  // helper آمن لربط الأحداث
   const on = (id, evt, fn) => { const el = $(id); if (el) el.addEventListener(evt, fn); };
 
-  // تبديل اللغة
-  on("langSelect", "change", (e)=>{
-    setLang(e.target.value);
-    localStorage.setItem("uv_lang", LANG);
+  on("langSelect", "change", (e)=>{ setLang(e.target.value); localStorage.setItem("uv_lang", LANG); });
+
+  // ====== Uploader: button + drag&drop ======
+  const fi = $("fileInput"), dz = $("dropzone");
+  const pick = ()=>{ if (fi) fi.click(); };
+  on("pickBtn","click", pick);
+
+  function handlePicked(f){
+    if(!f) return;
+    resetUI(false);
+    file = f;
+    const isImage = f.type?.startsWith("image") || (f.name||"").match(/\.(png|jpe?g|webp|tiff?)$/i);
+    fillModelsFor(isImage?"image":"video");
+    const url = URL.createObjectURL(f);
+    currentObjectURLs.push(url);
+    if(isImage){ $("beforeImg").src=url; $("beforeImg").style.display="block"; }
+    else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
+  }
+
+  on("fileInput","change",(e)=>handlePicked(e.target.files?.[0]));
+
+  if (dz){
+    ["dragenter","dragover"].forEach(ev=>dz.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();dz.classList.add("dragover");}));
+    ["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,(e)=>{e.preventDefault();e.stopPropagation();dz.classList.remove("dragover");}));
+    dz.addEventListener("drop",(e)=>{ handlePicked(e.dataTransfer?.files?.[0]); });
+    dz.addEventListener("click", pick);
+  }
+
+  // sliders live
+  [["ctlSharpen","valSharpen"],["ctlDenoise","valDenoise"],["ctlRecover","valRecover"],["ctlGrain","valGrain"]]
+  .forEach(([i,v])=>{
+    const input=$(i), label=$(v); if(input&&label){ const sync=()=>label.textContent=`${input.value}%`; input.addEventListener("input",sync); sync(); }
   });
 
-  // زر واحد لفتح الـ file picker
-  const fi = $("fileInput");
-  const clickPicker = ()=>{ if (fi) fi.click(); };
-  on("pickBtn", "click", clickPicker);
-
-  // قيم السلايدرز live
-  [
-    ["ctlSharpen","valSharpen"],
-    ["ctlDenoise","valDenoise"],
-    ["ctlRecover","valRecover"],
-    ["ctlGrain","valGrain"]
-  ].forEach(([i,v])=>{
-    const input = $(i), label=$(v);
-    if (input && label){
-      const sync = ()=> label.textContent = `${input.value}%`;
-      input.addEventListener("input", sync);
-      sync();
-    }
-  });
-
-  // إغلاق الأوفرلاي عند الرجوع/الظهور
+  // visibility / session restore
   window.addEventListener("pageshow", () => { if (!currentProcessId) showOverlay(false); });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && !currentProcessId) showOverlay(false);
-  });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !currentProcessId) showOverlay(false); });
 
-  // استرجاع تلقائي لو في processId محفوظ
-  try{
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (saved?.id) startPolling(saved.id, true);
-  }catch{}
+  try{ const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); if (saved?.id) startPolling(saved.id, true); }catch{}
 
-  // تغيّر الموديل
+  // change model options for video
   on("modelSelect","change", ()=>{
     if(!file) return;
     const isVideo = file.type?.startsWith("video") || kindFromName(file.name)==="video";
@@ -325,32 +306,16 @@ document.addEventListener("DOMContentLoaded", ()=>{
     fillSelect($("optionSelect"), VIDEO_MODELS[model]||[]);
   });
 
-  // اختيار الملف
-  on("fileInput","change", (e)=>{
-    resetUI(false);
-    file = e.target.files?.[0] || null;
-    if(!file) return;
-    const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
-    fillModelsFor(isImage?"image":"video");
-    const url=URL.createObjectURL(file); currentObjectURLs.push(url);
-    if(isImage){ $("beforeImg").src=url; $("beforeImg").style.display="block"; }
-    else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
-  });
-
   // reset
   on("resetBtn","click", ()=>resetUI(true));
 
-  // زر التشغيل (+ إرسال القيم)
+  // enhance
   on("enhanceBtn","click", async ()=>{
     if(!file){ toast(I18N[LANG].pick_first,"error"); return; }
     setProgress(5, I18N[LANG].uploading);
 
     const model=$("modelSelect")?.value, option=$("optionSelect")?.value, scale=$("scaleSelect")?.value, format=$("formatSelect")?.value, fpsT=$("fpsTarget")?.value;
-
-    const sharpen = $("ctlSharpen")?.value ?? "";
-    const denoise = $("ctlDenoise")?.value ?? "";
-    const recover = $("ctlRecover")?.value ?? "";
-    const grain   = $("ctlGrain")?.value   ?? "";
+    const sharpen = $("ctlSharpen")?.value ?? "", denoise = $("ctlDenoise")?.value ?? "", recover = $("ctlRecover")?.value ?? "", grain = $("ctlGrain")?.value ?? "";
 
     const form=new FormData();
     form.append("file",file);
@@ -358,7 +323,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(option) form.append("model_option",option);
     if(scale)  form.append("scale",scale);
     if(format) form.append("format",format);
-    if(fpsT)   form.append("fps_target",fpsT); // 30/60/90/120
+    if(fpsT)   form.append("fps_target",fpsT);
     if(sharpen) form.append("sharpen",sharpen);
     if(denoise) form.append("denoise",denoise);
     if(recover) form.append("recover",recover);
@@ -377,7 +342,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         setProgress(70, I18N[LANG].converting);
         const blob=await res.blob(), url=URL.createObjectURL(blob); currentObjectURLs.push(url);
         $("afterImg").src=url; $("afterImg").style.display="block"; setProgress(100, I18N[LANG].ready);
-        const a=$("downloadBtn"); if (a){ a.href=url; a.download=`enhanced.${format||"jpg"}`; a.style.display="inline-block"; }
+        const a1=$("downloadBtn"), a2=$("downloadBtn2"); [a1,a2].forEach(a=>{ if(a){ a.href=url; a.download=`enhanced.${format||"jpg"}`; a.style.display="inline-block"; }});
         toast(LANG==="ar"?"تم معالجة الصورة بنجاح":"Image processed");
       } else {
         const res = await fetch("/enhance/video",{method:"POST",body:form});
