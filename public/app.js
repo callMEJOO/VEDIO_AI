@@ -1,4 +1,4 @@
-// =================== UltraVision App (i18n + % UI + safe bindings) ===================
+// =================== UltraVision App (i18n + % UI + safe bindings + file picker fixes) ===================
 const dbg = (msg) => { const d = document.getElementById("debug"); if (!d) return; d.style.display="block"; d.textContent = msg; };
 window.addEventListener("error", (e)=>dbg("[JS Error] " + (e.error?.message || e.message || "unknown")));
 
@@ -19,8 +19,8 @@ const I18N = {
     run_enhance: "تشغيل التحسين",
     before: "قبل",
     after: "بعد",
-    overlay_preparing: "جاري تجهيز الفيديو للعرض...",
-    fps_placeholder: "fps الهدف (فيديو)",
+    overlay_preparing: "جاري تجهيز الفيديو...",
+    fps_placeholder: "FPS الهدف (فيديو)",
     uploading: "جاري الرفع...",
     queued: "في قائمة الانتظار...",
     processing: "يتم المعالجة...",
@@ -43,7 +43,7 @@ const I18N = {
     run_enhance: "Run Enhance",
     before: "Before",
     after: "After",
-    overlay_preparing: "Preparing video for playback...",
+    overlay_preparing: "Preparing video...",
     fps_placeholder: "Target FPS (Video)",
     uploading: "Uploading...",
     queued: "Queued...",
@@ -259,7 +259,7 @@ async function startPolling(processId, resume=false){
   tick();
 }
 
-// =================== Init (safe bindings) ===================
+// =================== Init (safe bindings + picker fixes) ===================
 document.addEventListener("DOMContentLoaded", ()=>{
   // لغة مخزّنة؟
   const savedLang = localStorage.getItem("uv_lang");
@@ -284,14 +284,19 @@ document.addEventListener("DOMContentLoaded", ()=>{
     localStorage.setItem("uv_lang", LANG);
   });
 
+  // فتح الـ file picker (label + زر اختياري)
+  const fi = $("fileInput");
+  const clickPicker = ()=>{ if (fi) fi.click(); };
+  on("pickFile", "click", clickPicker);
+  on("pickBtn",  "click", clickPicker);
+
   // قيم السلايدرز live
-  const sl = [
+  [
     ["ctlSharpen","valSharpen"],
     ["ctlDenoise","valDenoise"],
     ["ctlRecover","valRecover"],
     ["ctlGrain","valGrain"]
-  ];
-  sl.forEach(([i,v])=>{
+  ].forEach(([i,v])=>{
     const input = $(i), label=$(v);
     if (input && label){
       const sync = ()=> label.textContent = `${input.value}%`;
@@ -321,7 +326,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     fillSelect($("optionSelect"), VIDEO_MODELS[model]||[]);
   });
 
-  // اختيار الملف
+  // اختيار الملف (binding مباشر)
   on("fileInput","change", (e)=>{
     resetUI(false);
     file = e.target.files?.[0] || null;
@@ -333,10 +338,25 @@ document.addEventListener("DOMContentLoaded", ()=>{
     else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
   });
 
+  // تفويض عام لو الـ binding اتلغى لأي سبب
+  document.addEventListener("change", (e)=>{
+    const t = e.target;
+    if (t && t.id === "fileInput") {
+      resetUI(false);
+      file = t.files?.[0] || null;
+      if(!file) return;
+      const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
+      fillModelsFor(isImage?"image":"video");
+      const url=URL.createObjectURL(file); currentObjectURLs.push(url);
+      if(isImage){ $("beforeImg").src=url; $("beforeImg").style.display="block"; }
+      else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
+    }
+  });
+
   // reset
   on("resetBtn","click", ()=>resetUI(true));
 
-  // زر التشغيل (+ إرسال قيم السلايدرز)
+  // زر التشغيل (+ إرسال القيم)
   on("enhanceBtn","click", async ()=>{
     if(!file){ toast(I18N[LANG].pick_first,"error"); return; }
     setProgress(5, I18N[LANG].uploading);
@@ -354,7 +374,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     if(option) form.append("model_option",option);
     if(scale)  form.append("scale",scale);
     if(format) form.append("format",format);
-    if(fpsT)   form.append("fps_target",fpsT);
+    if(fpsT)   form.append("fps_target",fpsT); // 30/60/90/120
     if(sharpen) form.append("sharpen",sharpen);
     if(denoise) form.append("denoise",denoise);
     if(recover) form.append("recover",recover);
