@@ -10,7 +10,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 120 32">
+      <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
         <defs>
           <linearGradient id="uvg" x1="0" y1="0" x2="1" y2="1">
             <stop stop-color="#5b8cff"/>
@@ -34,29 +34,31 @@
   </header>
 
   <section class="controls">
-    <!-- ✅ شيلنا hidden من الـ input وخليّناه يغطي مساحة الليبل بشفافية -->
+    <!-- زرار اختيار الملف + input فوقه شفاف -->
     <label id="pickFile" class="file" data-i18n="pick_file">اختر ملف
       <input type="file" id="fileInput" />
     </label>
+    <!-- زر إضافي صريح لفتح الـ picker (fallback) -->
+    <button id="pickBtn" class="btn btn-accent" style="min-width:140px">اختيار ملف</button>
 
-    <select id="modelSelect"></select>
-    <select id="optionSelect"><option value="" data-i18n="none">(لا يوجد)</option></select>
+    <select id="modelSelect" title="الموديل"></select>
+    <select id="optionSelect" title="خيار الموديل"><option value="" data-i18n="none">(لا يوجد)</option></select>
 
-    <select id="scaleSelect">
+    <select id="scaleSelect" title="التكبير">
       <option value="1x">1×</option>
       <option value="2x" selected>2×</option>
       <option value="4x">4×</option>
     </select>
 
-    <select id="formatSelect">
+    <select id="formatSelect" title="الصيغة">
       <option value="jpeg">JPEG</option>
       <option value="png">PNG</option>
       <option value="webp">WEBP</option>
       <option value="mp4">MP4</option>
     </select>
 
-    <!-- ✅ FPS ثابت بالقيم المطلوبة -->
-    <select id="fpsTarget">
+    <!-- FPS ثابت بالقيم المطلوبة -->
+    <select id="fpsTarget" title="FPS">
       <option value="">FPS</option>
       <option value="30">30</option>
       <option value="60">60</option>
@@ -89,12 +91,12 @@
   <main class="preview">
     <section class="pane">
       <h3 data-i18n="before">قبل</h3>
-      <img id="beforeImg"/>
+      <img id="beforeImg" alt="" />
       <video id="beforeVideo" controls playsinline></video>
     </section>
     <section class="pane">
       <h3 data-i18n="after">بعد</h3>
-      <img id="afterImg"/>
+      <img id="afterImg" alt="" />
       <video id="afterVideo" controls playsinline></video>
     </section>
   </main>
@@ -107,7 +109,7 @@
     <div id="statusText"></div>
   </section>
 
-  <div id="loaderOverlay" class="overlay" hidden style="display:none">
+  <div id="loaderOverlay" class="overlay" aria-hidden="true" hidden style="display:none">
     <div class="spinner"></div>
     <div class="overlay-text" id="overlayText" data-i18n="overlay_preparing">جاري تجهيز الفيديو...</div>
     <div class="overlay-pct" id="overlayPct">—</div>
