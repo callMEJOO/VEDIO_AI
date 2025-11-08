@@ -23,9 +23,9 @@ body{
 .actions-bar{display:flex; align-items:center; gap:10px}
 
 /* Controls */
-.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center;
+.controls{display:flex; flex-direction:column; gap:12px; align-items:center; justify-content:center;
   padding:16px; border-bottom:1px solid var(--border); background:rgba(17,22,29,.65);}
-select, input, .btn{
+select, .btn{
   background:var(--soft); color:var(--text); border:1px solid var(--border);
   border-radius:12px; padding:10px 14px; font-size:14px; cursor:pointer;
 }
@@ -34,15 +34,27 @@ select, input, .btn{
 .btn-accent{background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#fff; box-shadow:0 6px 18px rgba(93,140,255,.25);}
 .btn-ghost{background:transparent; color:var(--muted); border:1px dashed var(--border)}
 
-/* اخفاء الـ input خارج الشاشة (حل موثوق لكل المتصفحات) */
-.visually-hidden{
-  position:absolute !important;
-  left:-9999px !important;
-  width:1px;height:1px; overflow:hidden; pointer-events:none;
+/* Brand line */
+.brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:4px}
+.brandmark{height:28px;filter:drop-shadow(0 6px 14px rgba(97,121,255,.25))}
+.brandline .dot{color:#7aa0ff;opacity:.9}
+
+/* Uploader */
+.uploader{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.visually-hidden{position:absolute !important; left:-9999px !important; width:1px;height:1px; overflow:hidden; pointer-events:none;}
+.dropzone{
+  min-width:260px; max-width:620px; flex:1;
+  padding:14px; text-align:center; color:#bcd3ff;
+  border:1px dashed var(--border); border-radius:12px; background:#101624;
 }
+.dropzone.dragover{outline:2px solid var(--accent); background:#0f1830}
+
+/* row of selects */
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+select, .btn{min-height:40px}
 
 /* Tune sliders */
-.tune{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.tune{display:flex;gap:14px;align-items:center;flex-wrap:wrap; justify-content:center}
 .tune label{color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center}
 .tune input[type="range"]{width:140px; accent-color:var(--accent)}
 .range-val{background:#0a0f16;border:1px solid var(--border);padding:2px 8px;border-radius:999px;font-size:12px;color:#cfe1ff}
