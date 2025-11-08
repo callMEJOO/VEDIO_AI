@@ -1,10 +1,11 @@
-// Debug helper
+// =================== UltraVision App (with session resume) ===================
 const dbg = (msg) => { const d = document.getElementById("debug"); if (!d) return; d.style.display="block"; d.textContent = msg; };
 window.addEventListener("error", (e)=>dbg("[JS Error] " + (e.error?.message || e.message || "unknown")));
 
-// State
 let file=null, currentProcessId=null, currentObjectURLs=[];
 const $ = id => document.getElementById(id);
+const STORAGE_KEY = "uv_current_process_v1";
+
 const revokeAll = () => { currentObjectURLs.forEach(URL.revokeObjectURL); currentObjectURLs=[]; };
 
 // Toasts
@@ -15,24 +16,22 @@ function toast(msg, type="ok"){
 }
 
 // Progress & overlay
-function setProgress(p,t){ const b=$("bar"); if(b) b.style.width=`${p}%`; const s=$("statusText"); if(s&&t) s.textContent=t; }
+function setProgress(p,t){ const bar=$("bar"); if(bar) bar.style.width=`${p}%`; const s=$("statusText"); if(s&&t) s.textContent=t; }
 function showOverlay(show=true){
-  const o = $("loaderOverlay");
-  if (!o) return;
-  if (show) o.classList.add("show");
-  else o.classList.remove("show");
+  const o = $("loaderOverlay"); if (!o) return;
+  if (show) o.classList.add("show"); else o.classList.remove("show");
 }
 
-// Reset
+// Reset UI
 function resetUI(hard=false){
   ["beforeImg","afterImg"].forEach(i=>{ const el=$(i); if(el){ el.src=""; el.style.display="none"; } });
   ["beforeVideo","afterVideo"].forEach(i=>{ const v=$(i); if(!v) return; v.pause(); v.removeAttribute("src"); v.load(); v.style.display="none"; });
   const dl=$("downloadBtn"); if(dl) dl.style.display="none";
   setProgress(0,""); revokeAll(); showOverlay(false);
-  if(hard){ const fi=$("fileInput"); if(fi) fi.value=""; file=null; currentProcessId=null; }
+  if(hard){ const fi=$("fileInput"); if(fi) fi.value=""; file=null; currentProcessId=null; localStorage.removeItem(STORAGE_KEY); }
 }
 
-// Kind
+// Helpers
 function kindFromName(name){ const ext=(name.split(".").pop()||"").toLowerCase(); const imgs=["jpg","jpeg","png","webp","tif","tiff"]; const vids=["mp4","mov","m4v","webm","mkv"]; if(imgs.includes(ext))return"image"; if(vids.includes(ext))return"video"; return"image"; }
 
 // Models
@@ -62,15 +61,139 @@ function friendly(msg) {
   return "";
 }
 
+// =================== Polling (shared) ===================
+async function startPolling(processId, resume=false){
+  currentProcessId = processId;
+  if (resume) {
+    setProgress(35, "استرجاع الحالة...");
+  } else {
+    setProgress(25, "تم الرفع. جاري المعالجة على السحابة...");
+  }
+
+  let pollDelay = 2000;
+  const pollMaxDelay = 15000;
+  const hardTimeoutMs = 15 * 60 * 1000;
+  const startedAt = Date.now();
+
+  async function tick(){
+    try{
+      const s = await fetch(`/status/${currentProcessId}`).then(r=>r.json());
+
+      const pct = Number(s?.progress?.percent || s?.progress || 0);
+      if (!isNaN(pct) && pct > 0 && pct <= 100) {
+        const barPct = Math.max(30, Math.min(95, Math.floor(pct)));
+        setProgress(barPct, "يتم المعالجة..." + (pct ? ` (${barPct}%)` : ""));
+      } else {
+        const stxt = (s?.status || "processing").toLowerCase();
+        if (stxt === "queued") setProgress(35, "في قائمة الانتظار...");
+        if (stxt === "processing") setProgress(55, "يتم المعالجة...");
+      }
+
+      // ===== انتهت المعالجة =====
+      if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
+        setProgress(95, "جاري تجهيز الفيديو للعرض...");
+        showOverlay(true);
+        try {
+          // استخدم رابط Topaz المباشر أولاً
+          if (s?.download?.url) {
+            const direct = s.download.url;
+            const v = $("afterVideo");
+            v.crossOrigin = "anonymous";
+            v.src = direct;
+            v.style.display = "block";
+            v.load();
+
+            const a = $("downloadBtn");
+            a.href = direct;
+            a.removeAttribute("download");
+            a.style.display = "inline-block";
+
+            setProgress(100,"جاهز ✅");
+            toast("تم معالجة الفيديو — تم فتحه مباشرة من السحابة");
+          } else {
+            // Fallback: عبر السيرفر
+            const dlUrl = `/video/download/${currentProcessId}`;
+            const resp = await fetch(dlUrl);
+            if (!resp.ok) throw new Error(`download proxy failed: ${resp.status}`);
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            currentObjectURLs.push(url);
+            $("afterVideo").src = url;
+            $("afterVideo").style.display = "block";
+            $("afterVideo").load();
+            const a = $("downloadBtn");
+            a.href = dlUrl;
+            a.setAttribute("download", `enhanced_${currentProcessId}.mp4`);
+            a.style.display = "inline-block";
+            setProgress(100,"جاهز ✅");
+            toast("تم معالجة الفيديو بنجاح");
+          }
+        } catch(err){
+          toast("تعذر عرض الفيديو تلقائيًا: " + (err?.message || "unknown"), "error");
+        } finally {
+          showOverlay(false);
+          // نظّف الجلسة المحفوظة
+          localStorage.removeItem(STORAGE_KEY);
+          currentProcessId = null;
+        }
+        return;
+      }
+
+      // فشل
+      const stLower = (s?.status || "").toLowerCase();
+      if (stLower === "failed" || stLower === "error" || s?.error) {
+        setProgress(0, "فشل المعالجة");
+        toast("فشل المعالجة: " + (s?.error || stLower), "error");
+        showOverlay(false);
+        localStorage.removeItem(STORAGE_KEY);
+        currentProcessId = null;
+        return;
+      }
+
+      // مهلة قصوى (أمان)
+      if (Date.now() - startedAt > hardTimeoutMs) {
+        setProgress(0, "انتهت المهلة");
+        toast("المعالجة تأخرت جدًا. جرّب فيديو أقصر أو أعد المحاولة لاحقًا.","error");
+        showOverlay(false);
+        // لا نمسح التخزين؛ المستخدم ممكن يعاود الاسترجاع يدويًا
+        return;
+      }
+
+      // backoff تدريجي
+      pollDelay = Math.min(pollDelay * 1.5, pollMaxDelay);
+      setTimeout(tick, pollDelay);
+    }catch(err){
+      // خطأ مؤقت في الشبكة — استمر
+      setTimeout(tick, Math.min(pollDelay * 2, pollMaxDelay));
+    }
+  }
+
+  // خزّن الجلسة للاسترجاع بعد الغلق
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ id: processId, t: Date.now() }));
+  tick();
+}
+
+// =================== Init ===================
 document.addEventListener("DOMContentLoaded", ()=>{
-  showOverlay(false);            // تأكيد الإغلاق عند أول تحميل
+  // تأكيد إطفاء الأوفرلاي عند الدخول
+  showOverlay(false);
   resetUI(true);
   fillModelsFor("image");
 
-  window.addEventListener("pageshow", () => showOverlay(false));
+  // لو خرج ورجع، اقفل الأوفرلاي إن مفيش عملية شغالة
+  window.addEventListener("pageshow", () => { if (!currentProcessId) showOverlay(false); });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && !currentProcessId) showOverlay(false);
   });
+
+  // استرجاع تلقائي لو في processId محفوظ
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    if (saved?.id) {
+      // ابدأ الاسترجاع فورًا بدون ما تلمس الأوفرلاي
+      startPolling(saved.id, true);
+    }
+  }catch{}
 
   $("modelSelect").addEventListener("change", ()=>{
     if(!file) return;
@@ -81,7 +204,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
   });
 
   $("fileInput").addEventListener("change", (e)=>{
-    resetUI(false); file=e.target.files[0]; if(!file) return;
+    resetUI(false);
+    file = e.target.files[0];
+    if(!file) return;
     const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
     fillModelsFor(isImage?"image":"video");
     const url=URL.createObjectURL(file); currentObjectURLs.push(url);
@@ -96,7 +221,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
     setProgress(5,"جاري الرفع...");
 
     const model=$("modelSelect").value, option=$("optionSelect").value, scale=$("scaleSelect").value, format=$("formatSelect").value, fpsT=$("fpsTarget").value;
-    const form=new FormData(); form.append("file",file); form.append("model",model); if(option) form.append("model_option",option); form.append("scale",scale); form.append("format",format); if(fpsT) form.append("fps_target",fpsT);
+    const form=new FormData();
+    form.append("file",file);
+    form.append("model",model);
+    if(option) form.append("model_option",option);
+    form.append("scale",scale);
+    form.append("format",format);
+    if(fpsT) form.append("fps_target",fpsT);
 
     try{
       const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
@@ -109,8 +240,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
             const ct = res.headers.get("content-type") || "";
             if(ct.includes("application/json")){
               const j = await res.json();
-              msg = (typeof j?.error === "string") ? j.error
-                : (j?.error ? JSON.stringify(j.error) : JSON.stringify(j));
+              msg = (typeof j?.error === "string") ? j.error : (j?.error ? JSON.stringify(j.error) : JSON.stringify(j));
             } else {
               const t = await res.text();
               msg = t || msg;
@@ -127,104 +257,13 @@ document.addEventListener("DOMContentLoaded", ()=>{
       } else {
         const res = await fetch("/enhance/video",{method:"POST",body:form});
         if(!res.ok){ let raw=`HTTP ${res.status}`; try{const j=await res.json(); if(j.error) raw=j.error;}catch{} toast("فشل الفيديو: "+raw+"\n"+(friendly(raw)||""),"error"); setProgress(0,"خطأ"); return; }
-        const {processId}=await res.json(); currentProcessId=processId; setProgress(25,"تم الرفع. جاري المعالجة على السحابة...");
-
-        let pollStart = Date.now();
-        let pollDelay = 2000;
-        const pollMaxDelay = 15000;
-        const hardTimeoutMs = 15 * 60 * 1000;
-
-        async function tick() {
-          try {
-            const s = await fetch(`/status/${currentProcessId}`).then(r => r.json());
-            const pct = Number(s?.progress?.percent || s?.progress || 0);
-            if (!isNaN(pct) && pct > 0 && pct <= 100) {
-              const barPct = Math.max(30, Math.min(95, Math.floor(pct)));
-              setProgress(barPct, "يتم المعالجة..." + (pct ? ` (${barPct}%)` : ""));
-            } else {
-              const stxt = (s?.status || "processing").toLowerCase();
-              if (stxt === "queued") setProgress(35, "في قائمة الانتظار...");
-              if (stxt === "processing") setProgress(55, "يتم المعالجة...");
-            }
-
-            // ======= انتهت المعالجة =======
-            if ((s?.status || "").toLowerCase() === "completed" || s?.download?.url) {
-              setProgress(95,"جاري تجهيز الفيديو للعرض...");
-              showOverlay(true);
-
-              try {
-                // ✅ استخدم رابط Topaz المباشر أولاً لعرض سريع
-                if (s?.download?.url) {
-                  const direct = s.download.url;
-                  const v = $("afterVideo");
-                  v.crossOrigin = "anonymous";
-                  v.src = direct;
-                  v.style.display = "block";
-                  v.load();
-
-                  const a = $("downloadBtn");
-                  a.href = direct;
-                  a.removeAttribute("download");
-                  a.style.display = "inline-block";
-
-                  setProgress(100,"جاهز ✅");
-                  toast("تم معالجة الفيديو — تم فتحه مباشرة من السحابة");
-                  showOverlay(false);
-                  return;
-                }
-
-                // Fallback: حمّل عبر السيرفر (Blob)
-                const dlUrl = `/video/download/${currentProcessId}`;
-                const resp = await fetch(dlUrl);
-                if (!resp.ok) throw new Error(`download proxy failed: ${resp.status}`);
-                const blob = await resp.blob();
-                const url  = URL.createObjectURL(blob);
-                currentObjectURLs.push(url);
-                $("afterVideo").src = url;
-                $("afterVideo").style.display = "block";
-                $("afterVideo").load();
-                const a = $("downloadBtn");
-                a.href = dlUrl;
-                a.setAttribute("download", `enhanced_${currentProcessId}.mp4`);
-                a.style.display = "inline-block";
-                setProgress(100,"جاهز ✅");
-                toast("تم معالجة الفيديو بنجاح");
-              } catch (err) {
-                toast("تعذر عرض الفيديو تلقائيًا: " + (err?.message||"unknown"), "error");
-              } finally {
-                showOverlay(false);
-              }
-              return;
-            }
-
-            // حالات الفشل
-            const stLower = (s?.status || "").toLowerCase();
-            if (stLower === "failed" || stLower === "error" || s?.error) {
-              setProgress(0, "فشل المعالجة");
-              toast("فشل المعالجة: " + (s?.error || stLower), "error");
-              showOverlay(false);
-              return;
-            }
-
-            // مهلة قصوى
-            if (Date.now() - pollStart > hardTimeoutMs) {
-              setProgress(0, "انتهت المهلة");
-              toast("المعالجة تأخرت جدًا. جرّب فيديو أقصر أو أعد المحاولة لاحقًا.","error");
-              showOverlay(false);
-              return;
-            }
-
-            // backoff تدريجي حتى 15s
-            pollDelay = Math.min(pollDelay * 1.5, pollMaxDelay);
-            setTimeout(tick, pollDelay);
-          } catch (err) {
-            setProgress(0, "خطأ في الاستعلام");
-            toast("Status request error: " + (err?.message || "unknown"),"error");
-            showOverlay(false);
-          }
-        }
-        tick();
+        const {processId}=await res.json();
+        startPolling(processId);
       }
-    }catch(err){ dbg("[Fetch Error] "+(err.message||String(err))); setProgress(0,"خطأ"); showOverlay(false); }
+    }catch(err){
+      dbg("[Fetch Error] "+(err.message||String(err)));
+      setProgress(0,"خطأ");
+      showOverlay(false);
+    }
   });
 });
