@@ -25,7 +25,7 @@
 
     <nav class="actions-bar">
       <select id="langSelect" class="btn btn-ghost">
-        <option value="ar">العربية</option>
+        <option value="ar" selected>العربية</option>
         <option value="en">English</option>
       </select>
       <a id="downloadBtn" class="btn btn-accent" style="display:none" data-i18n="download">⬇ تنزيل النتيجة</a>
@@ -34,35 +34,48 @@
   </header>
 
   <section class="controls">
-    <!-- ✅ زر واحد فقط لفتح المُلتقط -->
-    <button id="pickBtn" type="button" class="btn btn-accent" style="min-width:140px" data-i18n="pick_file">اختيار ملف</button>
-    <!-- ✅ input مخفي خارج الشاشة (مش جوّه label) -->
-    <input type="file" id="fileInput" class="visually-hidden" accept="image/*,video/*" />
+    <div class="brandline">
+      <img src="https://svgshare.com/i/16oF.svg" alt="UltraVision" class="brandmark" />
+      <span class="dot">•</span>
+      <span class="subtitle" data-i18n="subtitle">تحسين وتكبير — صور / فيديو</span>
+    </div>
 
-    <select id="modelSelect" title="الموديل"></select>
-    <select id="optionSelect" title="خيار الموديل"><option value="" data-i18n="none">(لا يوجد)</option></select>
+    <div class="uploader">
+      <!-- input مخفي لكن قابل للفتح -->
+      <input id="fileInput" type="file" accept="image/*,video/*" class="visually-hidden" />
+      <button id="pickBtn" type="button" class="btn btn-accent" data-i18n="pick_file">اختيار ملف</button>
+      <div id="dropzone" class="dropzone">اسحب وأفلت ملف هنا أو اضغط “اختيار ملف”</div>
+    </div>
 
-    <select id="scaleSelect" title="التكبير">
-      <option value="1x">1×</option>
-      <option value="2x" selected>2×</option>
-      <option value="4x">4×</option>
-    </select>
+    <div class="row">
+      <select id="modelSelect" title="الموديل"></select>
+      <select id="optionSelect" title="خيار الموديل"><option value="" data-i18n="none">(لا يوجد)</option></select>
 
-    <select id="formatSelect" title="الصيغة">
-      <option value="jpeg">JPEG</option>
-      <option value="png">PNG</option>
-      <option value="webp">WEBP</option>
-      <option value="mp4">MP4</option>
-    </select>
+      <select id="scaleSelect" title="التكبير">
+        <option value="1x">1×</option>
+        <option value="2x" selected>2×</option>
+        <option value="4x">4×</option>
+      </select>
 
-    <!-- ✅ FPS ثابت: 30 / 60 / 90 / 120 -->
-    <select id="fpsTarget" title="FPS">
-      <option value="">FPS</option>
-      <option value="30">30</option>
-      <option value="60">60</option>
-      <option value="90">90</option>
-      <option value="120">120</option>
-    </select>
+      <select id="formatSelect" title="الصيغة">
+        <option value="jpeg">JPEG</option>
+        <option value="png">PNG</option>
+        <option value="webp">WEBP</option>
+        <option value="mp4">MP4</option>
+      </select>
+
+      <!-- FPS ثابت -->
+      <select id="fpsTarget" title="FPS">
+        <option value="">FPS</option>
+        <option value="30">30</option>
+        <option value="60">60</option>
+        <option value="90">90</option>
+        <option value="120">120</option>
+      </select>
+
+      <button id="enhanceBtn" class="btn btn-accent" data-i18n="run_enhance">تشغيل التحسين</button>
+      <a id="downloadBtn2" class="btn btn-ghost" style="display:none" data-i18n="download">⬇ تنزيل النتيجة</a>
+    </div>
 
     <div class="tune">
       <label>Sharpen
@@ -82,8 +95,6 @@
         <span class="range-val" id="valGrain">0%</span>
       </label>
     </div>
-
-    <button id="enhanceBtn" class="btn btn-accent" data-i18n="run_enhance">تشغيل التحسين</button>
   </section>
 
   <main class="preview">
