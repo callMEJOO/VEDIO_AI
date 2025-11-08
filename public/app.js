@@ -1,4 +1,4 @@
-// =================== UltraVision App (i18n + % UI + safe bindings + file picker fixes) ===================
+// =================== UltraVision App (i18n + % UI + safe bindings + single file picker) ===================
 const dbg = (msg) => { const d = document.getElementById("debug"); if (!d) return; d.style.display="block"; d.textContent = msg; };
 window.addEventListener("error", (e)=>dbg("[JS Error] " + (e.error?.message || e.message || "unknown")));
 
@@ -14,13 +14,13 @@ const I18N = {
     subtitle: "تحسين وتكبير — صور / فيديو",
     download: "⬇ تنزيل النتيجة",
     reset: "إعادة ضبط",
-    pick_file: "اختر ملف",
+    pick_file: "اختيار ملف",
     none: "(لا يوجد)",
     run_enhance: "تشغيل التحسين",
     before: "قبل",
     after: "بعد",
     overlay_preparing: "جاري تجهيز الفيديو...",
-    fps_placeholder: "FPS الهدف (فيديو)",
+    fps_placeholder: "Target FPS (Video)",
     uploading: "جاري الرفع...",
     queued: "في قائمة الانتظار...",
     processing: "يتم المعالجة...",
@@ -259,7 +259,7 @@ async function startPolling(processId, resume=false){
   tick();
 }
 
-// =================== Init (safe bindings + picker fixes) ===================
+// =================== Init (safe bindings + single picker) ===================
 document.addEventListener("DOMContentLoaded", ()=>{
   // لغة مخزّنة؟
   const savedLang = localStorage.getItem("uv_lang");
@@ -284,11 +284,10 @@ document.addEventListener("DOMContentLoaded", ()=>{
     localStorage.setItem("uv_lang", LANG);
   });
 
-  // فتح الـ file picker (label + زر اختياري)
+  // زر واحد لفتح الـ file picker
   const fi = $("fileInput");
   const clickPicker = ()=>{ if (fi) fi.click(); };
-  on("pickFile", "click", clickPicker);
-  on("pickBtn",  "click", clickPicker);
+  on("pickBtn", "click", clickPicker);
 
   // قيم السلايدرز live
   [
@@ -326,7 +325,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     fillSelect($("optionSelect"), VIDEO_MODELS[model]||[]);
   });
 
-  // اختيار الملف (binding مباشر)
+  // اختيار الملف
   on("fileInput","change", (e)=>{
     resetUI(false);
     file = e.target.files?.[0] || null;
@@ -336,21 +335,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const url=URL.createObjectURL(file); currentObjectURLs.push(url);
     if(isImage){ $("beforeImg").src=url; $("beforeImg").style.display="block"; }
     else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
-  });
-
-  // تفويض عام لو الـ binding اتلغى لأي سبب
-  document.addEventListener("change", (e)=>{
-    const t = e.target;
-    if (t && t.id === "fileInput") {
-      resetUI(false);
-      file = t.files?.[0] || null;
-      if(!file) return;
-      const isImage = file.type?.startsWith("image") || kindFromName(file.name)==="image";
-      fillModelsFor(isImage?"image":"video");
-      const url=URL.createObjectURL(file); currentObjectURLs.push(url);
-      if(isImage){ $("beforeImg").src=url; $("beforeImg").style.display="block"; }
-      else { $("beforeVideo").src=url; $("beforeVideo").style.display="block"; $("beforeVideo").load(); }
-    }
   });
 
   // reset
