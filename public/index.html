@@ -4,11 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>UltraVision AI — تحسين الفيديو والصور</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop stop-color='%235b8cff'/%3E%3Cstop offset='1' stop-color='%238a5bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect rx='28' ry='28' width='128' height='128' fill='%23111519'/%3E%3Cpath d='M22 64c0-23 19-42 42-42s42 19 42 42-19 42-42 42S22 87 22 64zm17 0a25 25 0 1050 0 25 25 0 00-50 0z' fill='url(%23g)'/%3E%3Ccircle cx='64' cy='64' r='11' fill='%23fff'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Top App Bar -->
   <header class="topbar">
     <div class="brand">
       <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
@@ -29,15 +27,12 @@
     </nav>
   </header>
 
-  <!-- Controls -->
   <section class="controls">
-    <label class="file">
-      اختر ملف
+    <label class="file">اختر ملف
       <input type="file" id="fileInput" hidden />
     </label>
 
     <select id="modelSelect" title="الموديل"></select>
-
     <select id="optionSelect" title="خيار الموديل">
       <option value="">(لا يوجد)</option>
     </select>
@@ -57,10 +52,17 @@
 
     <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps الهدف (فيديو)" />
 
+    <!-- تحكمات زي Topaz -->
+    <div class="tune">
+      <label>Sharpen <input id="ctlSharpen" type="range" min="0" max="100" value="0" /></label>
+      <label>Denoise <input id="ctlDenoise" type="range" min="0" max="100" value="0" /></label>
+      <label>Recover <input id="ctlRecover" type="range" min="0" max="100" value="0" /></label>
+      <label>Grain   <input id="ctlGrain"   type="range" min="0" max="100" value="0" /></label>
+    </div>
+
     <button id="enhanceBtn" class="btn btn-accent">تشغيل التحسين</button>
   </section>
 
-  <!-- Previews -->
   <main class="preview">
     <section class="pane">
       <h3>قبل</h3>
@@ -74,21 +76,18 @@
     </section>
   </main>
 
-  <!-- Status -->
   <section class="status">
     <div class="progress"><div id="bar"></div></div>
     <div id="statusText"></div>
   </section>
 
-  <!-- Loader overlay (hidden by default) -->
-  <div id="loaderOverlay" class="overlay" hidden>
+  <!-- Overlay (مقفول افتراضيًا، يفتح بـ .show) -->
+  <div id="loaderOverlay" class="overlay">
     <div class="spinner"></div>
     <div class="overlay-text">جاري تجهيز الفيديو للعرض...</div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
-
   <div id="debug" class="debug" style="display:none"></div>
 
   <footer class="footer">
