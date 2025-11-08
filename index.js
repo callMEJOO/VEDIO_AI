@@ -15,6 +15,10 @@ app.use(express.static("public"));
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use((req, _res, next) => { console.log(`${req.method} ${req.path}`); next(); });
 
+if (!process.env.TOPAZ_API_KEY) {
+  console.warn("[WARN] TOPAZ_API_KEY is missing! Image/Video calls will fail.");
+}
+
 /* ------------ UPLOAD TMP ------------ */
 const upload = multer({
   dest: "/tmp/uploads",
@@ -49,13 +53,13 @@ function scaleOut(w,h,scaleTxt){
   return { width: Math.max(2,Math.round(w*f)), height: Math.max(2,Math.round(h*f)) };
 }
 
-/* ------------ IMAGE SYNC API ------------ */
+/* ------------ IMAGE SYNC API (أخطاء مقروءة) ------------ */
 const IMG_CT = { jpeg:"image/jpeg", jpg:"image/jpeg", png:"image/png", webp:"image/webp", tiff:"image/tiff", tif:"image/tiff" };
 
 app.post("/enhance/image", upload.single("file"), async(req,res)=>{
   const tmp = req.file?.path;
   try{
-    if(!req.file?.path) return res.status(400).json({error:"No image uploaded"});
+    if(!req.file?.path) return res.status(400).json({ error: "No image uploaded" });
 
     const {model="Standard V2",scale="2x",format="jpeg"} = req.body;
     const form = new FormData();
@@ -70,7 +74,8 @@ app.post("/enhance/image", upload.single("file"), async(req,res)=>{
       {
         headers:{...form.getHeaders(),"X-API-Key":process.env.TOPAZ_API_KEY},
         responseType:"arraybuffer",
-        maxBodyLength:Infinity, maxContentLength:Infinity
+        maxBodyLength:Infinity, maxContentLength:Infinity,
+        validateStatus: s => s >= 200 && s < 300
       }
     );
 
@@ -79,8 +84,22 @@ app.post("/enhance/image", upload.single("file"), async(req,res)=>{
     res.setHeader("Content-Disposition",`attachment; filename="enhanced.${format}"`);
     res.send(Buffer.from(r.data,"binary"));
   }catch(e){
-    console.error("IMAGE ERROR:", e?.response?.data || e.message);
-    res.status(400).json({error:e?.response?.data||e.message});
+    const status = e?.response?.status || 400;
+    let payload = e?.response?.data;
+
+    if (payload && payload instanceof Buffer) {
+      try { payload = JSON.parse(payload.toString("utf8")); }
+      catch { payload = payload.toString("utf8"); }
+    }
+
+    let message = "Image enhance failed";
+    if (typeof payload === "string") message = payload;
+    else if (payload?.error) message = payload.error;
+    else if (payload?.message) message = payload.message;
+    else if (payload) message = JSON.stringify(payload);
+
+    console.error("IMAGE ERROR:", status, message);
+    res.status(status).json({ error: message, status });
   }finally{ safeUnlink(tmp); }
 });
 
@@ -123,11 +142,10 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
     const outFps  = fps_target? Number(fps_target) : Math.max(1,Math.round(fps));
     const hasAudio = (meta.streams||[]).some(s=>s.codec_type==="audio");
 
-    // الصوت: قيم مطلوبة بحروف كبيرة حسب الـ API
-    const audioTransfer = hasAudio ? "Convert" : "None"; // لو مفيش صوت = None
-    const audioCodec    = hasAudio ? "AAC"     : undefined; // AAC | AC3 | PCM
+    const audioTransfer = hasAudio ? "Convert" : "None"; // None لو مفيش صوت
+    const audioCodec    = hasAudio ? "AAC" : undefined;   // AAC | AC3 | PCM
 
-    /* ---------- 1) CREATE VIDEO REQUEST ---------- */
+    /* ---------- 1) CREATE ---------- */
     const createBody = {
       source:{
         container,
@@ -140,10 +158,10 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
       output:{
         container:"mp4",
         resolution:{width:outRes.width,height:outRes.height},
-        frameRate:outFps,                 // REQUIRED
-        audioTransfer,                    // REQUIRED
-        ...(audioCodec?{audioCodec}:{}) , // لو None مش هنرسل codec
-        dynamicCompressionLevel:"Mid"     // Low | Mid | High
+        frameRate:outFps,
+        audioTransfer,
+        ...(audioCodec?{audioCodec}:{}) ,
+        dynamicCompressionLevel:"Mid"
       },
       filters:[{model:model_option}]
     };
@@ -204,7 +222,7 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
   }finally{ safeUnlink(tmp); }
 });
 
-/* ------------ STATUS (مع لوج يبيّن التقدم) ------------ */
+/* ------------ STATUS (لوج تقدّم) ------------ */
 app.get("/status/:id", async (req, res) => {
   try {
     const st = await axios.get(
