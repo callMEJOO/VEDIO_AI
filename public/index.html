@@ -34,14 +34,24 @@
   </header>
 
   <section class="controls">
+    <!-- ===== Brand line (شعار SVG شفاف) ===== -->
     <div class="brandline">
-      <img src="https://svgshare.com/i/16oF.svg" alt="UltraVision" class="brandmark" />
+      <svg class="wordmark" viewBox="0 0 360 64" aria-hidden="true">
+        <defs>
+          <linearGradient id="uv-wordgrad" x1="0" y1="0" x2="1" y2="1">
+            <stop stop-color="#5B8CFF"/>
+            <stop offset="1" stop-color="#8A5BFF"/>
+          </linearGradient>
+        </defs>
+        <text x="0" y="44" font-size="44" font-weight="800" fill="url(#uv-wordgrad)">UltraVision</text>
+        <text x="300" y="44" font-size="24" font-weight="700" fill="#c8d2ff">AI</text>
+      </svg>
       <span class="dot">•</span>
       <span class="subtitle" data-i18n="subtitle">تحسين وتكبير — صور / فيديو</span>
     </div>
 
+    <!-- ===== Uploader (زر واحد + Dropzone) ===== -->
     <div class="uploader">
-      <!-- input مخفي لكن قابل للفتح -->
       <input id="fileInput" type="file" accept="image/*,video/*" class="visually-hidden" />
       <button id="pickBtn" type="button" class="btn btn-accent" data-i18n="pick_file">اختيار ملف</button>
       <div id="dropzone" class="dropzone">اسحب وأفلت ملف هنا أو اضغط “اختيار ملف”</div>
@@ -64,7 +74,6 @@
         <option value="mp4">MP4</option>
       </select>
 
-      <!-- FPS ثابت -->
       <select id="fpsTarget" title="FPS">
         <option value="">FPS</option>
         <option value="30">30</option>
