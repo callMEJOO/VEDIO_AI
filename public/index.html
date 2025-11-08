@@ -5,28 +5,27 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>UltraVision AI — تحسين الفيديو والصور</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- ضمان إخفاء الأوفرلاي لو الـ CSS الخارجي اتأخر -->
   <style>#loaderOverlay{display:none!important}</style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
+      <svg class="logo" viewBox="0 0 120 32">
         <defs>
           <linearGradient id="uvg" x1="0" y1="0" x2="1" y2="1">
             <stop stop-color="#5b8cff"/>
             <stop offset="1" stop-color="#8a5bff"/>
           </linearGradient>
         </defs>
-        <text x="0" y="23" font-family="Inter, Segoe UI, Arial" font-weight="800" font-size="22" fill="url(#uvg)">UltraVision</text>
-        <text x="108" y="23" font-family="Inter" font-weight="700" font-size="14" fill="#c8d2ff">AI</text>
+        <text x="0" y="23" font-size="22" font-weight="800" fill="url(#uvg)">UltraVision</text>
+        <text x="108" y="23" font-size="14" font-weight="700" fill="#c8d2ff">AI</text>
       </svg>
-      <span class="subtitle" data-i18n="subtitle">Upscale &amp; Enhance — Image / Video</span>
+      <span class="subtitle" data-i18n="subtitle">تحسين وتكبير — صور / فيديو</span>
     </div>
 
     <nav class="actions-bar">
       <select id="langSelect" class="btn btn-ghost">
-        <option value="ar" selected>العربية</option>
+        <option value="ar">العربية</option>
         <option value="en">English</option>
       </select>
       <a id="downloadBtn" class="btn btn-accent" style="display:none" data-i18n="download">⬇ تنزيل النتيجة</a>
@@ -39,44 +38,37 @@
       <input type="file" id="fileInput" hidden />
     </label>
 
-    <select id="modelSelect" title="الموديل"></select>
+    <select id="modelSelect"></select>
+    <select id="optionSelect"><option value="" data-i18n="none">(لا يوجد)</option></select>
 
-    <select id="optionSelect" title="خيار الموديل">
-      <option value="" data-i18n="none">(لا يوجد)</option>
-    </select>
-
-    <select id="scaleSelect" title="التكبير">
+    <select id="scaleSelect">
       <option value="1x">1×</option>
       <option value="2x" selected>2×</option>
       <option value="4x">4×</option>
     </select>
 
-    <select id="formatSelect" title="صيغة الخرج">
-      <option value="jpeg">JPEG (Image)</option>
-      <option value="png">PNG (Image)</option>
-      <option value="webp">WEBP (Image)</option>
-      <option value="mp4">MP4 (Video)</option>
+    <select id="formatSelect">
+      <option value="jpeg">JPEG</option>
+      <option value="png">PNG</option>
+      <option value="webp">WEBP</option>
+      <option value="mp4">MP4</option>
     </select>
 
-    <input id="fpsTarget" type="number" min="2" max="240" step="1" placeholder="fps الهدف (فيديو)" data-i18n-ph="fps_placeholder" />
+    <input id="fpsTarget" type="number" min="2" max="240" placeholder="fps الهدف (فيديو)" data-i18n-ph="fps_placeholder" />
 
-    <!-- تحكمات زي Topaz -->
     <div class="tune">
       <label>Sharpen
         <input id="ctlSharpen" type="range" min="0" max="100" value="0" />
         <span class="range-val" id="valSharpen">0%</span>
       </label>
-
       <label>Denoise
         <input id="ctlDenoise" type="range" min="0" max="100" value="0" />
         <span class="range-val" id="valDenoise">0%</span>
       </label>
-
       <label>Recover
         <input id="ctlRecover" type="range" min="0" max="100" value="0" />
         <span class="range-val" id="valRecover">0%</span>
       </label>
-
       <label>Grain
         <input id="ctlGrain" type="range" min="0" max="100" value="0" />
         <span class="range-val" id="valGrain">0%</span>
@@ -89,12 +81,12 @@
   <main class="preview">
     <section class="pane">
       <h3 data-i18n="before">قبل</h3>
-      <img id="beforeImg" alt="" />
+      <img id="beforeImg"/>
       <video id="beforeVideo" controls playsinline></video>
     </section>
     <section class="pane">
       <h3 data-i18n="after">بعد</h3>
-      <img id="afterImg" alt="" />
+      <img id="afterImg"/>
       <video id="afterVideo" controls playsinline></video>
     </section>
   </main>
@@ -107,21 +99,18 @@
     <div id="statusText"></div>
   </section>
 
-  <!-- Overlay (مقفول، يفتح بـ JS فقط) -->
-  <div id="loaderOverlay" class="overlay" aria-hidden="true" hidden style="display:none">
+  <div id="loaderOverlay" class="overlay" hidden style="display:none">
     <div class="spinner"></div>
-    <div class="overlay-text" id="overlayText" data-i18n="overlay_preparing">جاري تجهيز الفيديو للعرض...</div>
+    <div class="overlay-text" id="overlayText" data-i18n="overlay_preparing">جاري تجهيز الفيديو...</div>
     <div class="overlay-pct" id="overlayPct">—</div>
   </div>
 
   <div id="toast" class="toast" hidden></div>
   <div id="debug" class="debug" style="display:none"></div>
 
-  <footer class="footer">
-    <span>© <span id="year"></span> UltraVision AI</span>
-  </footer>
+  <footer class="footer">© <span id="year"></span> UltraVision AI</footer>
 
-  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+  <script>document.getElementById("year").textContent=new Date().getFullYear();</script>
   <script src="app.js"></script>
 </body>
 </html>
