@@ -104,3 +104,6 @@ img, video{
 @media (max-width:920px){
   .preview{grid-template-columns:1fr}
 }
+
+/* المهم: أي عنصر عليه hidden يبقى مختفي فعلاً */
+[hidden]{ display:none !important; }
