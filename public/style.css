@@ -34,12 +34,12 @@ select, .btn{
 .btn-accent{background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#fff; box-shadow:0 6px 18px rgba(93,140,255,.25);}
 .btn-ghost{background:transparent; color:var(--muted); border:1px dashed var(--border)}
 
-/* Brand line */
-.brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:4px}
-.brandmark{height:28px;filter:drop-shadow(0 6px 14px rgba(97,121,255,.25))}
+/* ===== Brand line / Logo (شفاف) ===== */
+.brandline{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:10px}
+.wordmark{height:28px;width:auto;display:block}
 .brandline .dot{color:#7aa0ff;opacity:.9}
 
-/* Uploader */
+/* ===== Uploader ===== */
 .uploader{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
 .visually-hidden{position:absolute !important; left:-9999px !important; width:1px;height:1px; overflow:hidden; pointer-events:none;}
 .dropzone{
@@ -49,7 +49,7 @@ select, .btn{
 }
 .dropzone.dragover{outline:2px solid var(--accent); background:#0f1830}
 
-/* row of selects */
+/* rows */
 .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 select, .btn{min-height:40px}
 
