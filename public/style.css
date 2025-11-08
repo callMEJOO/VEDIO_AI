@@ -1,22 +1,12 @@
 :root{
-  --bg:#0c0f13;
-  --panel:#11161d;
-  --soft:#151c25;
-  --border:#1f2733;
-  --text:#e7ecf5;
-  --muted:#9fb0c8;
-  --accent:#5b8cff;
-  --accent2:#8a5bff;
-  --good:#35d49a;
-  --warn:#ffcc66;
-  --danger:#ff6b6b;
+  --bg:#0c0f13; --panel:#11161d; --soft:#151c25; --border:#1f2733;
+  --text:#e7ecf5; --muted:#9fb0c8; --accent:#5b8cff; --accent2:#8a5bff;
+  --good:#35d49a; --warn:#ffcc66; --danger:#ff6b6b;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0;
-  color:var(--text);
+  margin:0; color:var(--text);
   background:
     radial-gradient(1200px 600px at 80% -10%, rgba(138,91,255,.2), transparent 60%),
     radial-gradient(1000px 500px at -10% 120%, rgba(91,140,255,.2), transparent 60%),
@@ -25,85 +15,68 @@ body{
 }
 
 /* Top bar */
-.topbar{
-  position:sticky; top:0; z-index:10;
-  display:flex; justify-content:space-between; align-items:center;
-  padding:14px 18px; border-bottom:1px solid var(--border);
-  backdrop-filter:saturate(140%) blur(8px);
-  background:rgba(12,15,19,.75);
-}
+.topbar{position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center;
+  padding:14px 18px; border-bottom:1px solid var(--border); backdrop-filter:saturate(140%) blur(8px);
+  background:rgba(12,15,19,.75);}
 .brand{display:flex; align-items:center; gap:14px}
 .logo{width:170px; height:32px}
 .subtitle{color:var(--muted); font-size:13px}
 .actions-bar{display:flex; align-items:center; gap:10px}
 
 /* Controls */
-.controls{
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center;
-  padding:16px; border-bottom:1px solid var(--border); background:rgba(17,22,29,.65);
-}
+.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center;
+  padding:16px; border-bottom:1px solid var(--border); background:rgba(17,22,29,.65);}
 .file, select, input, .btn{
   background:var(--soft); color:var(--text); border:1px solid var(--border);
   border-radius:12px; padding:10px 14px; font-size:14px; cursor:pointer;
 }
-.file{position:relative}
-.file input{position:absolute; inset:0; opacity:0; cursor:pointer}
-select{min-width:170px}
-input#fpsTarget{width:190px}
+.file{position:relative} .file input{position:absolute; inset:0; opacity:0; cursor:pointer}
+select{min-width:170px} input#fpsTarget{width:190px}
 .btn{transition:transform .06s ease, box-shadow .2s}
 .btn:active{transform:translateY(1px)}
-.btn-accent{
-  background:linear-gradient(90deg,var(--accent),var(--accent2));
-  border:none; color:#fff; box-shadow:0 6px 18px rgba(93,140,255,.25);
-}
+.btn-accent{background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#fff; box-shadow:0 6px 18px rgba(93,140,255,.25);}
 .btn-ghost{background:transparent; color:var(--muted); border:1px dashed var(--border)}
+
+/* Tune sliders */
+.tune{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.tune label{color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center}
+.tune input[type="range"]{width:140px; accent-color:var(--accent)}
+.range-val{background:#0a0f16;border:1px solid var(--border);padding:2px 8px;border-radius:999px;font-size:12px;color:#cfe1ff}
 
 /* Preview */
 .preview{display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px; max-width:1200px; margin:0 auto}
 .pane{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px}
 .pane h3{margin:6px 0 12px; color:var(--muted); font-weight:700}
-img, video{
-  width:100%; max-height:62vh; object-fit:contain;
-  background:#0a0e12; border:1px solid #1b2330; border-radius:10px;
-}
+img, video{width:100%; max-height:62vh; object-fit:contain; background:#0a0e12; border:1px solid #1b2330; border-radius:10px;}
 
 /* Status */
 .status{max-width:820px; margin:12px auto 24px; padding:0 16px; text-align:center}
-.progress{height:12px; background:#121821; border-radius:999px; overflow:hidden; border:1px solid var(--border)}
+.progress{position:relative;height:14px; background:#121821; border-radius:999px; overflow:hidden; border:1px solid var(--border)}
 #bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s}
+#pctLabel{position:absolute; right:10px; top:50%; transform:translateY(-50%); font-size:12px; color:#d8e4ff; text-shadow:0 1px 2px rgba(0,0,0,.4)}
 #statusText{margin-top:10px; color:var(--muted)}
 
-/* Overlay loader */
-.overlay{
-  position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center;
-  background:rgba(8,10,14,.65); backdrop-filter:blur(2px);
-}
-.spinner{
-  width:48px; height:48px; border-radius:50%;
-  border:4px solid rgba(255,255,255,.15);
-  border-top-color:#fff; animation:spin 1s linear infinite; margin-bottom:10px;
-}
-.overlay-text{color:#fff; font-weight:600}
+/* Overlay */
+.overlay{position:fixed; inset:0; display:none; flex-direction:column; justify-content:center; align-items:center;
+  background:rgba(8,10,14,.65); backdrop-filter:blur(2px);}
+.overlay.show{display:flex;}
+.spinner{width:48px; height:48px; border-radius:50%; border:4px solid rgba(255,255,255,.15); border-top-color:#fff; animation:spin 1s linear infinite; margin-bottom:10px;}
+.overlay-text{color:#fff; font-weight:600; margin-bottom:6px}
+.overlay-pct{color:#bcd3ff; font-weight:700; letter-spacing:.5px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* Toast */
-.toast{
-  position:fixed; left:50%; transform:translateX(-50%);
-  bottom:18px; padding:10px 14px; border-radius:10px; color:#0c0f13; background:#e7ecf5;
-  box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:90%; text-align:center; z-index:20;
-}
+.toast{position:fixed; left:50%; transform:translateX(-50%); bottom:18px; padding:10px 14px; border-radius:10px; color:#0c0f13;
+  background:#e7ecf5; box-shadow:0 8px 24px rgba(0,0,0,.25); max-width:90%; text-align:center; z-index:20;}
 .toast.error{background:#ffdada; color:#2b0e12}
 .toast.ok{background:#d9ffe6; color:#0d2b1d}
 
 /* Debug + footer */
-.debug{max-width:1100px; margin:18px auto; padding:10px 12px; border-radius:10px;
-  border:1px dashed #3a1c1c; background:#210f12; color:#ffc9c9; font-size:13px}
+.debug{max-width:1100px; margin:18px auto; padding:10px 12px; border-radius:10px; border:1px dashed #3a1c1c; background:#210f12; color:#ffc9c9; font-size:13px}
 .footer{color:var(--muted); border-top:1px solid var(--border); padding:14px 18px; text-align:center}
 
 /* Responsive */
-@media (max-width:920px){
-  .preview{grid-template-columns:1fr}
-}
+@media (max-width:920px){ .preview{grid-template-columns:1fr} }
 
-/* المهم: أي عنصر عليه hidden يبقى مختفي فعلاً */
+/* لأي عناصر أخرى بتستخدم hidden */
 [hidden]{ display:none !important; }
