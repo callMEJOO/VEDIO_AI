@@ -86,12 +86,10 @@ app.post("/enhance/image", upload.single("file"), async(req,res)=>{
   }catch(e){
     const status = e?.response?.status || 400;
     let payload = e?.response?.data;
-
     if (payload && payload instanceof Buffer) {
       try { payload = JSON.parse(payload.toString("utf8")); }
       catch { payload = payload.toString("utf8"); }
     }
-
     let message = "Image enhance failed";
     if (typeof payload === "string") message = payload;
     else if (payload?.error) message = payload.error;
@@ -108,7 +106,7 @@ app.post("/enhance/image", upload.single("file"), async(req,res)=>{
 Flow:
 1) POST /video/ -> requestId (نرسل source + output + filters)
 2) PATCH /video/{id}/accept -> upload URLs (multipart)
-3) PUT parts
+3) PUT parts (موازي)
 4) PATCH /video/{id}/complete-upload/ -> يبدأ المعالجة
 5) GET /video/{id}/status -> download.url عند جاهزية
 */
@@ -135,15 +133,28 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
       model_option="prob-4",
       scale="2x",
       format="mp4",
-      fps_target
+      fps_target,
+      // تحكّمات إضافية شبيهة بتوباز
+      sharpen,
+      denoise,
+      recover,
+      grain
     } = req.body;
 
     const outRes  = scaleOut(width,height,scale);
     const outFps  = fps_target? Number(fps_target) : Math.max(1,Math.round(fps));
     const hasAudio = (meta.streams||[]).some(s=>s.codec_type==="audio");
 
-    const audioTransfer = hasAudio ? "Convert" : "None"; // None لو مفيش صوت
+    const audioTransfer = hasAudio ? "Convert" : "None";
     const audioCodec    = hasAudio ? "AAC" : undefined;   // AAC | AC3 | PCM
+
+    // params (clamped 0..100)
+    const params = {};
+    const clamp = (v)=> Math.max(0, Math.min(100, Number(v)));
+    if (sharpen !== undefined && sharpen !== "") params.sharpen = clamp(sharpen);
+    if (denoise !== undefined && denoise !== "") params.denoise = clamp(denoise);
+    if (recover !== undefined && recover !== "") params.recover = clamp(recover);
+    if (grain   !== undefined && grain   !== "") params.grain   = clamp(grain);
 
     /* ---------- 1) CREATE ---------- */
     const createBody = {
@@ -163,7 +174,10 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
         ...(audioCodec?{audioCodec}:{}) ,
         dynamicCompressionLevel:"Mid"
       },
-      filters:[{model:model_option}]
+      filters:[{
+        model: model_option,
+        ...(Object.keys(params).length ? { params } : {})
+      }]
     };
 
     const createResp = await axios.post(
@@ -184,28 +198,45 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
     if(!uploadId || !Array.isArray(urls) || urls.length===0)
       throw new Error("Accept did not return multipart URLs");
 
-    /* ---------- 3) MULTIPART PUT ---------- */
+    /* ---------- 3) MULTIPART PUT (parallel) ---------- */
     const totalSize = sizeBytes || fs.statSync(tmp).size;
     const parts     = urls.length;
     const partSize  = Math.ceil(totalSize/parts);
-    const uploadResults=[];
 
-    for(let i=0;i<parts;i++){
-      const start = i*partSize;
-      const end   = Math.min(totalSize,(i+1)*partSize)-1;
-      const contentLength = end-start+1;
-      const stream = fs.createReadStream(tmp,{start,end});
+    const MAX_CONCURRENCY = Math.min(6, parts); // عدّل لو عندك باقة أعلى
+    const uploadResults = new Array(parts);
 
-      const putResp = await axios.put(urls[i],stream,{
-        headers:{"Content-Length":contentLength},
-        maxBodyLength:Infinity,
-        maxContentLength:Infinity,
-        validateStatus:s=>s>=200 && s<400
-      });
+    let active = 0, nextIndex = 0;
+    await new Promise((resolve, reject) => {
+      const launch = () => {
+        while (active < MAX_CONCURRENCY && nextIndex < parts) {
+          const i = nextIndex++;
+          active++;
+          const start = i * partSize;
+          const end   = Math.min(totalSize, (i + 1) * partSize) - 1;
+          const contentLength = end - start + 1;
+          const stream = fs.createReadStream(tmp, { start, end });
 
-      const eTag = putResp.headers.etag||putResp.headers.ETag||putResp.headers["etag"];
-      uploadResults.push({partNum:i+1,eTag:(eTag||"").replace(/"/g,"")});
-    }
+          axios.put(urls[i], stream, {
+            headers: { "Content-Length": contentLength },
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity,
+            validateStatus: s => s >= 200 && s < 400
+          })
+          .then(r => {
+            const eTag = (r.headers.etag || r.headers.ETag || r.headers["etag"] || "").replace(/"/g, "");
+            uploadResults[i] = { partNum: i + 1, eTag };
+          })
+          .catch(reject)
+          .finally(() => {
+            active--;
+            if (nextIndex < parts) launch();
+            else if (active === 0) resolve();
+          });
+        }
+      };
+      launch();
+    });
 
     /* ---------- 4) COMPLETE UPLOAD ---------- */
     await axios.patch(
@@ -216,9 +247,11 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
 
     res.json({processId:requestId});
   }catch(e){
-    const msg = e?.response?.data || e.message || "Video flow error";
-    console.error("VIDEO ERROR:",msg);
-    res.status(400).json({error: typeof msg==="string"? msg: JSON.stringify(msg)});
+    const payload = e?.response?.data;
+    const msg = (typeof payload === "string") ? payload
+            : (payload?.error || payload?.message || e.message || "Video flow error");
+    console.error("VIDEO ERROR:", msg);
+    res.status(e?.response?.status || 400).json({error: msg});
   }finally{ safeUnlink(tmp); }
 });
 
@@ -244,7 +277,7 @@ app.get("/status/:id", async (req, res) => {
   }
 });
 
-/* ------------ DOWNLOAD ------------ */
+/* ------------ DOWNLOAD (fallback) ------------ */
 app.get("/video/download/:id", async(req,res)=>{
   try{
     const st = await axios.get(
