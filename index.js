@@ -102,13 +102,13 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
     const meta = await probe(tmp);
     const v = (meta.streams||[]).find(s=>s.codec_type==="video")||{};
     const fmt = meta.format||{};
-    const sizeBytes = Number(fmt.size||0);
+    const sizeBytes   = Number(fmt.size||0);
     const durationSec = Math.max(0.001, Number(fmt.duration||v.duration||0));
-    const fps = parseFPS(v.avg_frame_rate||v.r_frame_rate||fmt.avg_frame_rate);
-    const frameCount = Math.max(1,Math.round(durationSec*fps));
-    const width = Number(v.width||0);
-    const height = Number(v.height||0);
-    const container = (path.extname(req.file.originalname||"").replace(".","")||fmt.format_name||"mp4").split(",")[0];
+    const fps         = parseFPS(v.avg_frame_rate||v.r_frame_rate||fmt.avg_frame_rate);
+    const frameCount  = Math.max(1,Math.round(durationSec*fps));
+    const width       = Number(v.width||0);
+    const height      = Number(v.height||0);
+    const container   = (path.extname(req.file.originalname||"").replace(".","")||fmt.format_name||"mp4").split(",")[0];
 
     // frontend options
     const {
@@ -119,13 +119,13 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
       fps_target
     } = req.body;
 
-    const outRes = scaleOut(width,height,scale);
-    const outFps = fps_target? Number(fps_target) : Math.max(1,Math.round(fps));
+    const outRes  = scaleOut(width,height,scale);
+    const outFps  = fps_target? Number(fps_target) : Math.max(1,Math.round(fps));
     const hasAudio = (meta.streams||[]).some(s=>s.codec_type==="audio");
 
-    // الصوت: لازم قيم كبيرة
+    // الصوت: قيم مطلوبة بحروف كبيرة حسب الـ API
     const audioTransfer = hasAudio ? "Convert" : "None"; // لو مفيش صوت = None
-    const audioCodec = hasAudio ? "AAC" : undefined;      // AAC | AC3 | PCM
+    const audioCodec    = hasAudio ? "AAC"     : undefined; // AAC | AC3 | PCM
 
     /* ---------- 1) CREATE VIDEO REQUEST ---------- */
     const createBody = {
@@ -168,13 +168,13 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
 
     /* ---------- 3) MULTIPART PUT ---------- */
     const totalSize = sizeBytes || fs.statSync(tmp).size;
-    const parts = urls.length;
-    const partSize = Math.ceil(totalSize/parts);
+    const parts     = urls.length;
+    const partSize  = Math.ceil(totalSize/parts);
     const uploadResults=[];
 
     for(let i=0;i<parts;i++){
       const start = i*partSize;
-      const end = Math.min(totalSize,(i+1)*partSize)-1;
+      const end   = Math.min(totalSize,(i+1)*partSize)-1;
       const contentLength = end-start+1;
       const stream = fs.createReadStream(tmp,{start,end});
 
@@ -204,17 +204,25 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
   }finally{ safeUnlink(tmp); }
 });
 
-/* ------------ STATUS ------------ */
-app.get("/status/:id", async(req,res)=>{
-  try{
+/* ------------ STATUS (مع لوج يبيّن التقدم) ------------ */
+app.get("/status/:id", async (req, res) => {
+  try {
     const st = await axios.get(
       `https://api.topazlabs.com/video/${req.params.id}/status`,
-      {headers:{"X-API-Key":process.env.TOPAZ_API_KEY}}
+      { headers: { "X-API-Key": process.env.TOPAZ_API_KEY } }
+    );
+    console.log(
+      "STATUS",
+      req.params.id,
+      "->",
+      st.data?.status,
+      st.data?.progress ? JSON.stringify(st.data.progress) : "",
+      st.data?.download ? "has download" : ""
     );
     res.json(st.data);
-  }catch(e){
-    console.error("STATUS ERROR:",e?.response?.data||e.message);
-    res.status(500).json({status:"error"});
+  } catch (e) {
+    console.error("STATUS ERROR:", e?.response?.data || e.message);
+    res.status(500).json({ status: "error", error: e?.response?.data || e.message });
   }
 });
 
