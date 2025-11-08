@@ -20,7 +20,7 @@ const upload = multer({
   dest: "/tmp/uploads",
   limits: { fileSize: 1024 * 1024 * 512 } // 512MB
 });
-const safeUnlink = p => { if(p && fs.existsSync(p)) fs.unlink(p, ()=>{}); };
+const safeUnlink = p => { if (p && fs.existsSync(p)) fs.unlink(p, ()=>{}); };
 
 /* ------------ HELPERS ------------ */
 function probe(filePath) {
@@ -93,7 +93,6 @@ Flow:
 4) PATCH /video/{id}/complete-upload/ -> يبدأ المعالجة
 5) GET /video/{id}/status -> download.url عند جاهزية
 */
-
 app.post("/enhance/video", upload.single("file"), async(req,res)=>{
   const tmp = req.file?.path;
   try{
@@ -124,8 +123,9 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
     const outFps = fps_target? Number(fps_target) : Math.max(1,Math.round(fps));
     const hasAudio = (meta.streams||[]).some(s=>s.codec_type==="audio");
 
-    const audioTransfer = hasAudio? "Copy" : "None"; 
-    const audioCodec = hasAudio? "aac" : undefined;
+    // الصوت: لازم قيم كبيرة
+    const audioTransfer = hasAudio ? "Convert" : "None"; // لو مفيش صوت = None
+    const audioCodec = hasAudio ? "AAC" : undefined;      // AAC | AC3 | PCM
 
     /* ---------- 1) CREATE VIDEO REQUEST ---------- */
     const createBody = {
@@ -140,11 +140,10 @@ app.post("/enhance/video", upload.single("file"), async(req,res)=>{
       output:{
         container:"mp4",
         resolution:{width:outRes.width,height:outRes.height},
-        frameRate:outFps,
-        audioTransfer,
-        ...(audioCodec?{audioCodec}:{})
-        ,
-        dynamicCompressionLevel:"Mid" // Low/Mid/High
+        frameRate:outFps,                 // REQUIRED
+        audioTransfer,                    // REQUIRED
+        ...(audioCodec?{audioCodec}:{}) , // لو None مش هنرسل codec
+        dynamicCompressionLevel:"Mid"     // Low | Mid | High
       },
       filters:[{model:model_option}]
     };
