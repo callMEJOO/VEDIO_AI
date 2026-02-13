@@ -3,23 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Enhancer</title>
+<title>AI Video Enhancer</title>
 <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="dark">
 
-<header>
+<header class="header">
   <h1>AI Video Enhancer</h1>
-  <div class="top-actions">
+
+  <div class="header-actions">
     <select id="lang">
-      <option value="en">English</option>
-      <option value="ar">العربية</option>
+      <option value="en">EN</option>
+      <option value="ar">AR</option>
     </select>
-    <button id="mode">🌙</button>
+    <button id="modeToggle">🌙</button>
   </div>
 </header>
 
-<main>
+<main class="container">
+
   <input type="file" id="file" accept="image/*,video/*">
 
   <select id="model">
@@ -33,28 +36,43 @@
     <option value="wonder-1">Creative</option>
   </select>
 
-  <button id="enhance">Enhance</button>
+  <button id="enhanceBtn" class="primary">Enhance</button>
 
-  <p id="warn" class="hidden">⚠️ Please do not leave this page</p>
+  <!-- WARNING -->
+  <p id="leaveWarn" class="warn hidden">
+    ⚠️ Please do not leave this page while processing
+  </p>
 
-  <div id="loader" class="hidden">⏳ Processing… <span id="eta"></span></div>
+  <!-- LOADING -->
+  <div id="loading" class="loading hidden">
+    <div class="spinner"></div>
+    <p>Enhancing…</p>
+    <small id="eta">Estimated time: calculating…</small>
+  </div>
 
+  <!-- BEFORE / AFTER -->
   <div class="compare">
     <div>
       <h3>Before</h3>
-      <video id="before" controls></video>
+      <video id="beforeVid" controls></video>
       <img id="beforeImg">
     </div>
     <div>
       <h3>After</h3>
-      <video id="after" controls></video>
+      <video id="afterVid" controls></video>
       <img id="afterImg">
     </div>
   </div>
 
-  <button id="download" class="hidden">⬇ Download</button>
+  <!-- DOWNLOAD -->
+  <button id="downloadBtn" class="download hidden">⬇ Download</button>
 
-  <a href="https://scenepacks.com/" class="back">← ScenePacks</a>
+  <!-- LINKS -->
+  <div class="links">
+    <a href="https://scenepacks.com/" target="_blank">🎬 ScenePacks</a>
+    <a href="https://www.tiktok.com/@0ver4me" target="_blank">📩 Contact Me</a>
+  </div>
+
 </main>
 
 <script src="app.js"></script>
