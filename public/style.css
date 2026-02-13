@@ -1,4 +1,7 @@
-* { box-sizing: border-box; font-family: Arial, sans-serif; }
+* {
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
 
 body {
   margin: 0;
@@ -7,7 +10,13 @@ body {
   text-align: center;
 }
 
-header { padding: 25px; }
+header {
+  padding: 30px 20px;
+}
+
+.top-bar {
+  margin-bottom: 10px;
+}
 
 .controls {
   display: flex;
@@ -29,7 +38,10 @@ button {
   cursor: pointer;
 }
 
-button:disabled { opacity: .5; }
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .warning {
   background: #ffb300;
@@ -60,10 +72,18 @@ img, video {
   border-radius: 10px;
 }
 
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
 
-#status { font-weight: bold; margin: 10px; }
-#eta { color: #aaa; }
+#status {
+  font-weight: bold;
+  margin: 10px;
+}
+
+#eta {
+  color: #aaa;
+}
 
 footer {
   margin-top: 40px;
