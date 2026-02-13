@@ -9,14 +9,17 @@ const ffprobePath = require("ffprobe-static").path;
 const app = express();
 app.use(express.static("public"));
 
-/* ================= UPLOAD ================= */
+/* ============ UPLOAD ============ */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 600 } // 600MB
+  limits: { fileSize: 1024 * 1024 * 600 }
 });
-const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
-/* ================= HELPERS ================= */
+const safeUnlink = p => {
+  if (p && fs.existsSync(p)) fs.unlinkSync(p);
+};
+
+/* ============ HELPERS ============ */
 const probe = p =>
   new Promise((res, rej) =>
     execFile(
@@ -35,7 +38,7 @@ const parseFPS = s => {
   return Number(s) || 30;
 };
 
-/* ================= PRESETS ================= */
+/* ============ PRESETS ============ */
 const PRESETS = {
   ultra: {
     output: {
@@ -64,22 +67,19 @@ const PRESETS = {
     },
     filters: [
       { model: "slf-2" },
-      {
-        model: "apo-8",
-        fps: 60,
-        slowmo: 1
-      }
+      { model: "apo-8", fps: 60, slowmo: 1 }
     ]
   }
 };
 
-/* ================= IMAGE ================= */
+/* ============ IMAGE ============ */
 app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).send("No image");
 
   try {
-    const form = new (require("form-data"))();
+    const FormData = require("form-data");
+    const form = new FormData();
     form.append("image", fs.createReadStream(tmp));
     form.append("model", "Standard V2");
     form.append("scale", "4x");
@@ -100,14 +100,14 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
     res.set("Content-Type","image/png");
     res.send(r.data);
 
-  } catch {
+  } catch (e) {
     res.status(500).send("Image enhance failed");
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ================= VIDEO ================= */
+/* ============ VIDEO ============ */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).json({ error: "No video file" });
@@ -129,8 +129,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const size = Number(meta.format.size);
     const frames = Math.max(1, Math.round(duration * fpsSrc));
 
-    let outRes;
-    let outFPS = fpsSrc;
+    let outRes, outFPS;
 
     if (presetKey === "astra") {
       outRes = { width: 1080, height: 1080 };
@@ -140,6 +139,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
         width: Math.min(width * 4, 3840),
         height: Math.min(height * 4, 2160)
       };
+      outFPS = fpsSrc;
     }
 
     const audioTransfer = hasAudio ? "Copy" : "None";
@@ -174,7 +174,15 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
 
-    const requestId = create.data.requestId;
+    console.log("TOPAZ CREATE:", create.data);
+
+    const requestId =
+      create.data.requestId ||
+      create.data.id;
+
+    if (!requestId) {
+      throw new Error("Topaz did not return process ID");
+    }
 
     const accept = await axios.patch(
       `https://api.topazlabs.com/video/${requestId}/accept`,
@@ -194,10 +202,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       const r = await axios.put(
         urls[i],
         fs.createReadStream(tmp,{start,end}),
-        {
-          headers:{ "Content-Length":len },
-          validateStatus:s=>s>=200 && s<400
-        }
+        { headers:{ "Content-Length":len } }
       );
 
       uploadResults.push({
@@ -220,13 +225,14 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     res.json({ processId: requestId });
 
   } catch (e) {
-    res.status(500).json({ error:"Video enhance failed" });
+    console.error("VIDEO ERROR:", e.message);
+    res.status(500).json({ error: "Video enhance failed" });
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ================= STATUS ================= */
+/* ============ STATUS ============ */
 app.get("/status/:id", async (req,res)=>{
   const r = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -235,7 +241,7 @@ app.get("/status/:id", async (req,res)=>{
   res.json(r.data);
 });
 
-/* ================= DOWNLOAD ================= */
+/* ============ DOWNLOAD ============ */
 app.get("/video/download/:id", async (req,res)=>{
   const st = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -249,11 +255,11 @@ app.get("/video/download/:id", async (req,res)=>{
   res.setHeader("Content-Type","video/mp4");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="enhanced-${req.params.id}.mp4"`
+    `attachment; filename="enhanced-video.mp4"`
   );
   stream.data.pipe(res);
 });
 
-/* ================= START ================= */
+/* ============ START ============ */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT,()=>console.log("🔥 Server running on",PORT));
