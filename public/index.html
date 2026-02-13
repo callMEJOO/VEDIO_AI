@@ -1,78 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>AI Enhancer Pro</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Image & Video Enhancer</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+<div class="app">
 
-<header>
-  <h1 id="title">AI Image & Video Enhancer</h1>
-  <p id="subtitle">
-    Enhance images and videos using AI<br>
-    Before / After • High Quality • Automatic
-  </p>
-</header>
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <div class="left">
+      <span class="logo">AI Enhancer</span>
+    </div>
+    <div class="right">
+      <select id="langSelect">
+        <option value="en">English</option>
+        <option value="ar">العربية</option>
+      </select>
 
-<div class="top-bar">
-  <select id="lang" onchange="setLang(this.value)">
-    <option value="en" selected>English</option>
-    <option value="ar">العربية</option>
-  </select>
-</div>
-
-<div class="controls">
-  <input type="file" id="file" accept="image/*,video/*">
-
-  <select id="quality">
-    <option value="auto">Auto Quality</option>
-    <option value="fast">Fast</option>
-    <option value="hq">High Quality</option>
-    <option value="ultra">Ultra (Slow)</option>
-  </select>
-
-  <select id="model">
-    <option value="auto">Auto Model</option>
-    <option value="proteus">Proteus</option>
-    <option value="iris">Iris (Faces)</option>
-    <option value="artemis">Artemis HQ</option>
-  </select>
-
-  <button id="btn" onclick="start()">Enhance</button>
-</div>
-
-<div id="warning" class="warning hidden">
-  ⚠️ Please do not leave or close this page while processing
-</div>
-
-<p id="eta"></p>
-
-<div id="preview" class="preview hidden">
-  <div class="panel">
-    <h3 id="beforeLabel">Before</h3>
-    <img id="beforeImg" class="hidden">
-    <video id="beforeVid" class="hidden" controls></video>
+      <button id="themeToggle">🌙</button>
+    </div>
   </div>
 
-  <div class="panel">
-    <h3 id="afterLabel">After</h3>
-    <img id="afterImg" class="hidden">
-    <video id="afterVid" class="hidden" controls></video>
+  <!-- HEADER -->
+  <header class="header">
+    <h1 id="title">AI Image & Video Enhancer</h1>
+    <p id="subtitle">
+      Enhance images and videos using AI<br>
+      Before / After • High Quality • Automatic
+    </p>
+  </header>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <input type="file" id="file" accept="image/*,video/*">
+
+    <select id="quality">
+      <option value="auto">Auto Quality</option>
+      <option value="fast">Fast</option>
+      <option value="hq">High Quality</option>
+    </select>
+
+    <select id="model">
+      <option value="auto">Auto Model</option>
+      <option value="prob-4">Proteus (prob-4)</option>
+      <option value="iris-3">Iris (Faces)</option>
+      <option value="nyx-3">Nyx (Anime)</option>
+    </select>
+
+    <button id="btn">Enhance</button>
   </div>
+
+  <!-- WARNING -->
+  <div id="warning" class="warning hidden">
+    ⚠️ Please do not leave or close this page while processing
+  </div>
+
+  <!-- ETA -->
+  <p id="eta"></p>
+
+  <!-- PREVIEW -->
+  <div id="preview" class="preview hidden">
+    <div class="panel">
+      <h3 id="beforeLabel">Before</h3>
+      <img id="beforeImg" class="hidden">
+      <video id="beforeVid" class="hidden" controls></video>
+    </div>
+
+    <div class="panel">
+      <h3 id="afterLabel">After</h3>
+      <img id="afterImg" class="hidden">
+      <video id="afterVid" class="hidden" controls></video>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <p id="status"></p>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>
+      © AI Enhancer • Powered by Topaz API<br>
+      Owner:
+      <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
+    </p>
+  </footer>
+
 </div>
-
-<p id="status"></p>
-
-<footer>
-  <p class="watermark">
-    © AI Enhancer • Powered by Topaz API<br>
-    Owner:
-    <a href="https://www.tiktok.com/@0ver4me?_r=1&_t=ZS-93t1Gk1hUjo" target="_blank">
-      @0ver4me
-    </a>
-  </p>
-</footer>
 
 <script src="app.js"></script>
 </body>
