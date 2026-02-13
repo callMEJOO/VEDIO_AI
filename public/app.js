@@ -1,94 +1,63 @@
-let busy = false;
 let processId = null;
 
-const fileInput = document.getElementById("file");
-const btn = document.getElementById("btn");
+const enhanceBtn = document.getElementById("enhance");
 const loader = document.getElementById("loader");
-const loaderText = document.getElementById("loaderText");
-const statusEl = document.getElementById("status");
-const downloadBtn = document.getElementById("downloadBtn");
+const etaEl = document.getElementById("eta");
+const warn = document.getElementById("warn");
 
-btn.onclick = start;
-downloadBtn.onclick = downloadVideo;
-
-function resetUI() {
-  processId = null;
-  statusEl.innerText = "";
-  loader.classList.add("hidden");
-  document.getElementById("actions").classList.add("hidden");
-}
-
-/* START */
-async function start() {
-  if (busy) return;
-  const file = fileInput.files[0];
+enhanceBtn.onclick = async () => {
+  const file = document.getElementById("file").files[0];
   if (!file) return;
 
-  resetUI();
-  busy = true;
-
-  const preset = document.getElementById("preset").value;
-  const isImage = file.type.startsWith("image");
-
+  warn.classList.remove("hidden");
   loader.classList.remove("hidden");
-  loaderText.innerText = "Uploading…";
 
   const fd = new FormData();
   fd.append("file", file);
-  fd.append("preset", preset);
+  fd.append("model", document.getElementById("model").value);
 
-  const r = await fetch(
-    isImage ? "/enhance/image" : "/enhance/video",
-    { method:"POST", body: fd }
-  );
-
-  if (isImage) {
+  if (file.type.startsWith("image")) {
+    const r = await fetch("/enhance/image",{ method:"POST", body:fd });
+    document.getElementById("afterImg").src = URL.createObjectURL(await r.blob());
     loader.classList.add("hidden");
-    statusEl.innerText = "✅ Image enhanced";
-    busy = false;
     return;
   }
 
+  document.getElementById("before").src = URL.createObjectURL(file);
+
+  const r = await fetch("/enhance/video",{ method:"POST", body:fd });
   const j = await r.json();
-
-  if (!j.processId) {
-    statusEl.innerText = "❌ Failed to start enhancement";
-    busy = false;
-    return;
-  }
-
   processId = j.processId;
   poll();
-}
+};
 
-/* POLL */
 async function poll() {
   const r = await fetch(`/status/${processId}`);
   const j = await r.json();
 
-  if (j.status === "complete" || j.status === "completed") {
-    loader.classList.add("hidden");
-    statusEl.innerText = "✅ Completed";
-    document.getElementById("actions").classList.remove("hidden");
-    busy = false;
-    return;
+  if (j.estimates?.time) {
+    etaEl.innerText = `~${Math.ceil(j.estimates.time[0]/60)} min`;
   }
 
-  statusEl.innerText = `⚙️ ${j.status}...`;
+  if (j.status === "complete") {
+    loader.classList.add("hidden");
+    warn.classList.add("hidden");
+    document.getElementById("after").src = `/video/download/${processId}`;
+    document.getElementById("download").classList.remove("hidden");
+    return;
+  }
   setTimeout(poll, 4000);
 }
 
-/* DOWNLOAD */
-async function downloadVideo() {
+document.getElementById("download").onclick = async () => {
   const r = await fetch(`/video/download/${processId}`);
   const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
-  a.href = url;
-  a.download = "enhanced-video.mp4";
-  document.body.appendChild(a);
+  a.href = URL.createObjectURL(blob);
+  a.download = "enhanced.mp4";
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
+};
+
+document.getElementById("mode").onclick = ()=>{
+  document.body.classList.toggle("light");
+};
