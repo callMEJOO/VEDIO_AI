@@ -101,7 +101,8 @@ img, video {
   border-radius: 10px;
   color: #000;
   font-weight: bold;
-  text-decoration: none;
+  border: none;
+  cursor: pointer;
 }
 
 /* FOOTER */
@@ -110,11 +111,6 @@ footer {
   margin-top: 40px;
   font-size: 13px;
   color: #888;
-}
-
-footer a {
-  color: #00ffaa;
-  text-decoration: none;
 }
 
 .hidden {
