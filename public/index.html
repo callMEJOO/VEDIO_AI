@@ -3,78 +3,53 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Image & Video Enhancer</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>AI Enhancer</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+
 <div class="app">
 
-  <!-- TOP BAR -->
-  <div class="top-bar">
-    <div class="left">
-      <span class="logo">AI Enhancer</span>
-    </div>
-    <div class="right">
-      <select id="langSelect">
-        <option value="en">English</option>
-        <option value="ar">العربية</option>
-      </select>
-      <button id="themeToggle">🌙</button>
-    </div>
+  <!-- TOP -->
+  <div class="top">
+    <h1>AI Image & Video Enhancer</h1>
+    <p>High Quality • Before / After • Automatic</p>
   </div>
-
-  <!-- HEADER -->
-  <header class="header">
-    <h1 id="title">AI Image & Video Enhancer</h1>
-    <p id="subtitle">
-      Enhance images and videos using AI<br>
-      Before / After • High Quality • Automatic
-    </p>
-  </header>
 
   <!-- CONTROLS -->
   <div class="controls">
     <input type="file" id="file" accept="image/*,video/*">
-
     <button id="btn">Enhance</button>
   </div>
 
-  <!-- WARNING -->
-  <div id="warning" class="warning hidden">
-    ⚠️ Please do not leave or close this page while processing
+  <!-- LOADING -->
+  <div id="loader" class="loader hidden">
+    <div class="spinner"></div>
+    <p id="loaderText">Uploading…</p>
   </div>
 
   <!-- PREVIEW -->
   <div id="preview" class="preview hidden">
     <div class="panel">
-      <h3 id="beforeLabel">Before</h3>
+      <h3>Before</h3>
       <img id="beforeImg" class="hidden">
       <video id="beforeVid" class="hidden" controls></video>
     </div>
 
     <div class="panel">
-      <h3 id="afterLabel">After</h3>
+      <h3>After</h3>
       <img id="afterImg" class="hidden">
       <video id="afterVid" class="hidden" controls></video>
-
-      <a id="downloadBtn" class="download hidden" download>
-        ⬇️ Download Result
-      </a>
     </div>
   </div>
 
   <!-- STATUS -->
-  <p id="status"></p>
+  <p id="status" class="status"></p>
 
-  <!-- FOOTER -->
-  <footer>
-    <p>
-      © AI Enhancer • Powered by Topaz API<br>
-      Owner:
-      <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
-    </p>
-  </footer>
+  <!-- ACTIONS -->
+  <div id="actions" class="actions hidden">
+    <a id="downloadBtn" class="download" download>⬇️ Download Result</a>
+  </div>
 
 </div>
 
