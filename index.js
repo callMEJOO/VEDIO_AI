@@ -12,7 +12,7 @@ app.use(express.static("public"));
 /* ================= Upload ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 700 } // 700MB
+  limits: { fileSize: 1024 * 1024 * 700 }
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
@@ -45,11 +45,11 @@ const VIDEO_MODELS = {
   "nyx-3":     { type:"normal", scale:4 },
   "thf-4":     { type:"normal", scale:2 },
 
-  // 🚀 ASTRA (FPS 60 – Paid Diffusion)
+  // 🚀 ASTRA – Paid Diffusion – FPS 60
   "astra-60":  { type:"astra", scale:2, fps:60 }
 };
 
-/* ================= Image ================= */
+/* ================= IMAGE ================= */
 app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).send("No image");
@@ -82,7 +82,7 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ================= Video ================= */
+/* ================= VIDEO ================= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).json({ error:"No video" });
@@ -104,12 +104,9 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const duration = Number(meta.format.duration);
     const size = Number(meta.format.size);
 
-    /* ===== ASTRA FIX (CRITICAL) ===== */
-    const outputFPS =
-      model.type === "astra" ? model.fps : fpsSrc;
-
-    const frameCount =
-      Math.round(duration * outputFPS);
+    /* ===== ASTRA SAFE VALUES ===== */
+    const outputFPS = model.type === "astra" ? model.fps : fpsSrc;
+    const frameCount = Math.round(duration * outputFPS);
 
     const outRes = {
       width: Math.min(width * model.scale, 3840),
@@ -142,11 +139,8 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
         container:"mp4",
         resolution: outRes,
         frameRate: outputFPS,
-
-        // 🔒 REQUIRED FOR ASTRA
         audioTransfer: hasAudio ? "Copy" : "None",
         audioCodec: "AAC",
-
         videoEncoder:"H264",
         videoProfile:"High",
         dynamicCompressionLevel:"High",
@@ -161,21 +155,37 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       filters
     };
 
-    /* ===== CREATE ===== */
-    const create = await axios.post(
-      "https://api.topazlabs.com/video/",
-      body,
-      { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
-    );
+    /* ===== DEBUG: SENT BODY ===== */
+    console.log("📤 TOPAZ REQUEST BODY:\n", JSON.stringify(body, null, 2));
 
-    if (!create.data || !create.data.requestId) {
-      console.error("TOPAZ CREATE FAILED:", create.data);
+    /* ===== CREATE ===== */
+    let create;
+    try {
+      create = await axios.post(
+        "https://api.topazlabs.com/video/",
+        body,
+        { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
+      );
+    } catch (err) {
+      console.error("❌ TOPAZ CREATE STATUS:", err.response?.status);
+      console.error("❌ TOPAZ CREATE DATA:\n", JSON.stringify(err.response?.data, null, 2));
       return res.status(400).json({
-        error: "Astra failed to start. Check credits or limits."
+        error: "Topaz rejected the request",
+        topazStatus: err.response?.status,
+        topazResponse: err.response?.data
       });
     }
 
-    const processId = create.data.requestId;
+    console.log("✅ TOPAZ CREATE RESPONSE:\n", JSON.stringify(create.data, null, 2));
+
+    const processId = create.data?.requestId;
+    if (!processId) {
+      console.error("❌ NO requestId FROM TOPAZ");
+      return res.status(400).json({
+        error: "Topaz did not return requestId",
+        topazResponse: create.data
+      });
+    }
 
     /* ===== ACCEPT ===== */
     const accept = await axios.patch(
@@ -223,7 +233,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ================= Status ================= */
+/* ================= STATUS ================= */
 app.get("/status/:id", async (req,res)=>{
   const r = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -232,7 +242,7 @@ app.get("/status/:id", async (req,res)=>{
   res.json(r.data);
 });
 
-/* ================= Download ================= */
+/* ================= DOWNLOAD ================= */
 app.get("/video/download/:id", async (req,res)=>{
   const st = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -248,7 +258,7 @@ app.get("/video/download/:id", async (req,res)=>{
   stream.data.pipe(res);
 });
 
-/* ================= Start ================= */
+/* ================= START ================= */
 app.listen(process.env.PORT || 3000, ()=>{
-  console.log("🚀 Server running (ASTRA READY)");
+  console.log("🚀 Server running (DEBUG MODE)");
 });
