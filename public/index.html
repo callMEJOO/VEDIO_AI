@@ -1,31 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Topaz Enhancer</title>
-<style>
-body{font-family:sans-serif;background:#0f0f0f;color:#fff;text-align:center}
-.box{margin:40px auto;padding:20px;width:320px;background:#1c1c1c;border-radius:12px}
-input,button{width:100%;margin:10px 0;padding:10px;border-radius:8px}
-button{background:#00ffaa;border:none;font-weight:bold}
-</style>
+  <meta charset="UTF-8" />
+  <title>Video Enhancer Pro</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div class="box">
-<h2>🔥 Video Enhancer</h2>
-<input type="file" id="file">
-<button onclick="go()">Enhance</button>
-<pre id="out"></pre>
-</div>
 
-<script>
-async function go(){
-  const f=document.getElementById("file").files[0];
-  const fd=new FormData(); fd.append("file",f);
-  const r=await fetch("/enhance/video",{method:"POST",body:fd});
-  const j=await r.json();
-  document.getElementById("out").innerText=JSON.stringify(j,null,2);
-}
-</script>
+  <header>
+    <h1>🔥 AI Video Enhancer</h1>
+    <p>Automatic enhancement • High Quality • No settings needed</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <input type="file" id="file" accept="video/*" />
+      <button onclick="start()">Enhance Automatically</button>
+
+      <div id="statusBox" class="hidden">
+        <p id="statusText">Uploading...</p>
+        <div class="progress">
+          <div id="bar"></div>
+        </div>
+      </div>
+
+      <a id="download" class="hidden" target="_blank">⬇ Download Video</a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-box">
+      <h3>📩 Contact Owner</h3>
+      <a href="https://www.tiktok.com/@0ver4me?_r=1&_t=ZS-93t1Gk1hUjo" target="_blank">
+        TikTok: @0ver4me
+      </a>
+    </div>
+
+    <div class="footer-box">
+      <h3>🎬 For ScenePack HQ Clips</h3>
+      <a href="https://scenepacks.com/" target="_blank">
+        scenepacks.com
+      </a>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
 </body>
 </html>
