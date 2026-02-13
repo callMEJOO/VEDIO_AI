@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
-const path = require("path");
 const axios = require("axios");
 const FormData = require("form-data");
 const { execFile } = require("child_process");
@@ -14,7 +13,7 @@ app.use(express.static("public"));
 /* ================= UPLOAD ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 300 } // 300MB (آمن على Render)
+  limits: { fileSize: 1024 * 1024 * 300 } // 300MB
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
@@ -83,6 +82,8 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const v = meta.streams.find(s=>s.codec_type==="video");
     if (!v) throw new Error("No video stream");
 
+    const hasAudio = meta.streams.some(s=>s.codec_type==="audio");
+
     const width = v.width;
     const height = v.height;
     const fps = parseFPS(v.avg_frame_rate || v.r_frame_rate);
@@ -90,7 +91,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const size = Number(meta.format.size);
     const frames = Math.max(1, Math.round(duration * fps));
 
-    /* ---------- SCALE (SMART & SAFE) ---------- */
+    /* ---------- SCALE ---------- */
     let outRes = { width, height };
     if (width < 1280) {
       outRes = { width: width * 2, height: height * 2 };
@@ -101,7 +102,11 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       };
     }
 
-    /* ---------- CREATE (TOPAZ NEW MODEL) ---------- */
+    /* ---------- AUDIO SETTINGS (FIX) ---------- */
+    const audioTransfer = hasAudio ? "Convert" : "None";
+    const audioCodec = hasAudio ? "AAC" : undefined;
+
+    /* ---------- CREATE ---------- */
     const create = await axios.post(
       "https://api.topazlabs.com/video/",
       {
@@ -117,6 +122,8 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
           container: "mp4",
           resolution: outRes,
           frameRate: fps,
+          audioTransfer,
+          ...(audioCodec ? { audioCodec } : {}),
           dynamicCompressionLevel: "Low"
         },
         filters:[{
