@@ -3,21 +3,20 @@ const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const axios = require("axios");
-const FormData = require("form-data");
 const { execFile } = require("child_process");
 const ffprobePath = require("ffprobe-static").path;
 
 const app = express();
 app.use(express.static("public"));
 
-/* ========== UPLOAD ========== */
+/* ================= UPLOAD ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 500 } // 500MB
+  limits: { fileSize: 1024 * 1024 * 600 } // 600MB
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
-/* ========== HELPERS ========== */
+/* ================= HELPERS ================= */
 const probe = p =>
   new Promise((res, rej) =>
     execFile(
@@ -36,17 +35,55 @@ const parseFPS = s => {
   return Number(s) || 30;
 };
 
-/* ========== IMAGE (ULTRA) ========== */
+/* ================= PRESETS ================= */
+const PRESETS = {
+  ultra: {
+    output: {
+      dynamicCompressionLevel: "Low"
+    },
+    filters: [
+      {
+        model: "prob-4",
+        params: {
+          denoise: 8,
+          sharpen: 14,
+          recover: 18,
+          grain: 0
+        }
+      }
+    ]
+  },
+
+  astra: {
+    output: {
+      dynamicCompressionLevel: "High",
+      videoBitrate: 540540
+    },
+    overrides: {
+      isPaidDiffusion: true
+    },
+    filters: [
+      { model: "slf-2" },
+      {
+        model: "apo-8",
+        fps: 60,
+        slowmo: 1
+      }
+    ]
+  }
+};
+
+/* ================= IMAGE ================= */
 app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).send("No image");
 
   try {
-    const form = new FormData();
+    const form = new (require("form-data"))();
     form.append("image", fs.createReadStream(tmp));
     form.append("model", "Standard V2");
-    form.append("scale", "4x");          // 🔥 أقصى Scale
-    form.append("output_format", "png"); // 🔥 أعلى جودة
+    form.append("scale", "4x");
+    form.append("output_format", "png");
 
     const r = await axios.post(
       "https://api.topazlabs.com/image/v1/enhance",
@@ -60,22 +97,25 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
       }
     );
 
-    res.set("Content-Type", "image/png");
+    res.set("Content-Type","image/png");
     res.send(r.data);
 
-  } catch (e) {
+  } catch {
     res.status(500).send("Image enhance failed");
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ========== VIDEO (ULTRA REAL) ========== */
+/* ================= VIDEO ================= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).json({ error: "No video file" });
 
   try {
+    const presetKey = req.body.preset || "ultra";
+    const preset = PRESETS[presetKey];
+
     const meta = await probe(tmp);
     const v = meta.streams.find(s=>s.codec_type==="video");
     if (!v) throw new Error("No video stream");
@@ -89,62 +129,53 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const size = Number(meta.format.size);
     const frames = Math.max(1, Math.round(duration * fpsSrc));
 
-    /* FPS حقيقي من الواجهة */
-    const userFps =
-      req.body.fps && req.body.fps !== "auto"
-        ? Number(req.body.fps)
-        : fpsSrc;
+    let outRes;
+    let outFPS = fpsSrc;
 
-    /* ULTRA SCALE */
-    let outRes = { width, height };
-    if (width < 1280) {
-      outRes = { width: width * 3, height: height * 3 };
-    } else if (width < 1920) {
-      outRes = { width: width * 2, height: height * 2 };
+    if (presetKey === "astra") {
+      outRes = { width: 1080, height: 1080 };
+      outFPS = 60;
+    } else {
+      outRes = {
+        width: Math.min(width * 4, 3840),
+        height: Math.min(height * 4, 2160)
+      };
     }
 
-    outRes.width = Math.min(outRes.width, 3840);
-    outRes.height = Math.min(outRes.height, 2160);
-
-    const audioTransfer = hasAudio ? "Convert" : "None";
+    const audioTransfer = hasAudio ? "Copy" : "None";
     const audioCodec = hasAudio ? "AAC" : undefined;
 
-    /* CREATE JOB */
+    const body = {
+      source: {
+        container: "mp4",
+        size,
+        duration,
+        frameCount: frames,
+        frameRate: fpsSrc,
+        resolution: { width, height }
+      },
+      output: {
+        container: "mp4",
+        resolution: outRes,
+        frameRate: outFPS,
+        audioTransfer,
+        ...(audioCodec ? { audioCodec } : {}),
+        videoEncoder: "H264",
+        videoProfile: "High",
+        ...preset.output
+      },
+      ...(preset.overrides ? { overrides: preset.overrides } : {}),
+      filters: preset.filters
+    };
+
     const create = await axios.post(
       "https://api.topazlabs.com/video/",
-      {
-        source:{
-          container:"mp4",
-          size,
-          duration,
-          frameCount: frames,
-          frameRate: fpsSrc,
-          resolution:{ width, height }
-        },
-        output:{
-          container:"mp4",
-          resolution: outRes,
-          frameRate: userFps,                 // 🔥 FPS حقيقي
-          audioTransfer,
-          ...(audioCodec ? { audioCodec } : {}),
-          dynamicCompressionLevel:"Low"       // 🔥 أقل ضغط
-        },
-        filters:[{
-          model:"prob-4",
-          params:{
-            denoise:10,
-            sharpen:12,
-            recover:15,   // 🔥 أعلى Recover
-            grain:0
-          }
-        }]
-      },
+      body,
       { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
 
     const requestId = create.data.requestId;
 
-    /* ACCEPT */
     const accept = await axios.patch(
       `https://api.topazlabs.com/video/${requestId}/accept`,
       {},
@@ -195,7 +226,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ========== STATUS ========== */
+/* ================= STATUS ================= */
 app.get("/status/:id", async (req,res)=>{
   const r = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -204,7 +235,7 @@ app.get("/status/:id", async (req,res)=>{
   res.json(r.data);
 });
 
-/* ========== DOWNLOAD (PROXY) ========== */
+/* ================= DOWNLOAD ================= */
 app.get("/video/download/:id", async (req,res)=>{
   const st = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -218,11 +249,11 @@ app.get("/video/download/:id", async (req,res)=>{
   res.setHeader("Content-Type","video/mp4");
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="enhanced-ultra.mp4"`
+    `attachment; filename="enhanced-${req.params.id}.mp4"`
   );
   stream.data.pipe(res);
 });
 
-/* ========== START ========== */
+/* ================= START ================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT,()=>console.log("🔥 ULTRA server running on",PORT));
+app.listen(PORT,()=>console.log("🔥 Server running on",PORT));
