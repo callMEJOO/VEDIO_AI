@@ -7,16 +7,14 @@ body {
   text-align: center;
 }
 
-header {
-  padding: 25px;
-}
+header { padding: 25px; }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 input, select, button {
@@ -31,9 +29,7 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
-  opacity: 0.5;
-}
+button:disabled { opacity: .5; }
 
 .warning {
   background: #ffb300;
@@ -66,15 +62,8 @@ img, video {
 
 .hidden { display: none; }
 
-#status {
-  font-weight: bold;
-  margin: 10px;
-}
-
-#eta {
-  color: #aaa;
-  margin-bottom: 10px;
-}
+#status { font-weight: bold; margin: 10px; }
+#eta { color: #aaa; }
 
 footer {
   margin-top: 40px;
