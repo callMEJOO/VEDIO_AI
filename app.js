@@ -1,71 +1,40 @@
 let busy = false;
 let processId = null;
-let currentLang = "en";
 
-const TEXT = {
-  en: {
-    uploading: "⏳ Uploading file...",
-    processing: p => `⚙️ Enhancing... ${p}%`,
-    done: "✅ Enhancement completed",
-    failed: "❌ Processing failed. Please try another file.",
-    warning: "⚠️ Please do not leave or close this page while processing",
-    eta: t => `⏱ Estimated time: ${t}`
-  },
-  ar: {
-    uploading: "⏳ جاري رفع الملف...",
-    processing: p => `⚙️ جاري التحسين... ${p}%`,
-    done: "✅ تم التحسين بنجاح",
-    failed: "❌ حدث خطأ، برجاء تجربة ملف آخر",
-    warning: "⚠️ برجاء عدم إغلاق الصفحة أثناء المعالجة",
-    eta: t => `⏱ الوقت المتوقع: ${t}`
-  }
-};
+const fileInput = document.getElementById("file");
+const btn = document.getElementById("btn");
+const loader = document.getElementById("loader");
+const loaderText = document.getElementById("loaderText");
+const statusEl = document.getElementById("status");
 
-function setLang(l) {
-  currentLang = l;
-  document.getElementById("warning").innerText = TEXT[l].warning;
-}
+btn.onclick = start;
 
-function estimateTime(file) {
-  const mb = file.size / (1024 * 1024);
-  if (file.type.startsWith("image")) return "5–10 sec";
-  if (mb < 100) return "1–2 min";
-  if (mb < 300) return "3–5 min";
-  return "6–10 min";
+function resetUI() {
+  processId = null;
+  statusEl.innerText = "";
+  loader.classList.add("hidden");
+  document.getElementById("actions").classList.add("hidden");
+  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
+    document.getElementById(id).classList.add("hidden");
+  });
 }
 
 async function start() {
   if (busy) return;
+  const file = fileInput.files[0];
+  if (!file) return;
 
-  const file = document.getElementById("file").files[0];
-  if (!file) return alert("Choose a file");
+  resetUI();
+  busy = true;
 
   const isImage = file.type.startsWith("image");
 
-  busy = true;
-  document.getElementById("btn").disabled = true;
-
-  document.getElementById("warning").classList.remove("hidden");
-  document.getElementById("eta").innerText =
-    TEXT[currentLang].eta(estimateTime(file));
-
   document.getElementById("preview").classList.remove("hidden");
-  document.getElementById("status").innerText =
-    TEXT[currentLang].uploading;
+  loader.classList.remove("hidden");
+  loaderText.innerText = "Uploading…";
 
-  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
-    document.getElementById(id).classList.add("hidden");
-  });
-
-  if (isImage) {
-    const img = document.getElementById("beforeImg");
-    img.src = URL.createObjectURL(file);
-    img.classList.remove("hidden");
-  } else {
-    const vid = document.getElementById("beforeVid");
-    vid.src = URL.createObjectURL(file);
-    vid.classList.remove("hidden");
-  }
+  if (isImage) showBeforeImage(file);
+  else showBeforeVideo(file);
 
   const fd = new FormData();
   fd.append("file", file);
@@ -75,63 +44,77 @@ async function start() {
     const r = await fetch(url, { method: "POST", body: fd });
 
     if (isImage) {
-      const ct = r.headers.get("content-type") || "";
-      if (!ct.includes("image")) throw new Error();
       const blob = await r.blob();
-      const out = document.getElementById("afterImg");
-      out.src = URL.createObjectURL(blob);
-      out.classList.remove("hidden");
-      document.getElementById("status").innerText =
-        TEXT[currentLang].done;
-      finish();
+      const out = URL.createObjectURL(blob);
+      document.getElementById("afterImg").src = out;
+      document.getElementById("afterImg").classList.remove("hidden");
+      setupDownload(out, "enhanced-image.jpg");
+      loader.classList.add("hidden");
+      statusEl.innerText = "✅ Completed";
+      busy = false;
       return;
     }
 
-    if (!r.ok) throw new Error();
     const j = await r.json();
     processId = j.processId;
     poll();
 
   } catch {
-    document.getElementById("status").innerText =
-      TEXT[currentLang].failed;
-    finish();
+    loader.classList.add("hidden");
+    statusEl.innerText = "❌ Failed";
+    busy = false;
   }
 }
 
 async function poll() {
-  try {
-    const r = await fetch(`/status/${processId}`);
-    const j = await r.json();
+  loaderText.innerText = "Enhancing (High Quality)…";
 
-    if (j.status === "processing") {
-      document.getElementById("status").innerText =
-        TEXT[currentLang].processing(
-          Math.round(j.progress?.percent || 0)
-        );
-      setTimeout(poll, 3000);
-      return;
-    }
+  const r = await fetch(`/status/${processId}`);
+  const j = await r.json();
 
-    if (j.status === "completed") {
-      const vid = document.getElementById("afterVid");
-      vid.src = j.download.url;
-      vid.classList.remove("hidden");
-      document.getElementById("status").innerText =
-        TEXT[currentLang].done;
-    } else {
-      document.getElementById("status").innerText =
-        TEXT[currentLang].failed;
-    }
-  } catch {
-    document.getElementById("status").innerText =
-      TEXT[currentLang].failed;
+  if (j.status === "initializing") {
+    statusEl.innerText = "⏳ In queue…";
+    setTimeout(poll, 5000);
+    return;
   }
 
-  finish();
+  if (j.status === "processing") {
+    statusEl.innerText = `⚙️ Enhancing… ${Math.round(j.progress || 0)}%`;
+    setTimeout(poll, 3000);
+    return;
+  }
+
+  if (j.status === "complete" || j.status === "completed") {
+    const url = j.download.url;
+    document.getElementById("afterVid").src = url;
+    document.getElementById("afterVid").classList.remove("hidden");
+    setupDownload(url, "enhanced-video.mp4");
+    loader.classList.add("hidden");
+    statusEl.innerText = "✅ Completed";
+    busy = false;
+    return;
+  }
+
+  loader.classList.add("hidden");
+  statusEl.innerText = "❌ Failed";
+  busy = false;
 }
 
-function finish() {
-  busy = false;
-  document.getElementById("btn").disabled = false;
+function setupDownload(url, name) {
+  const btn = document.getElementById("downloadBtn");
+  btn.href = url;
+  btn.download = name;
+  document.getElementById("actions").classList.remove("hidden");
+}
+
+function showBeforeImage(file) {
+  const img = document.getElementById("beforeImg");
+  img.src = URL.createObjectURL(file);
+  img.classList.remove("hidden");
+}
+
+function showBeforeVideo(file) {
+  const vid = document.getElementById("beforeVid");
+  vid.src = URL.createObjectURL(file);
+  vid.classList.remove("hidden");
 }
