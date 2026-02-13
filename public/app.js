@@ -1,114 +1,145 @@
+const TEXT = {
+  en: {
+    title: "AI Image & Video Enhancer",
+    subtitle: "Enhance images and videos using AI\nBefore / After • High Quality • Automatic",
+    before: "Before",
+    after: "After",
+    warning: "⚠️ Please do not leave or close this page while processing",
+    uploading: "Uploading...",
+    processing: p => `Enhancing... ${p}%`,
+    done: "Done ✅",
+    failed: "Failed ❌"
+  },
+  ar: {
+    title: "محسن الصور والفيديو بالذكاء الاصطناعي",
+    subtitle: "تحسين الصور والفيديوهات بالذكاء الاصطناعي\nقبل / بعد • جودة عالية • تلقائي",
+    before: "قبل",
+    after: "بعد",
+    warning: "⚠️ برجاء عدم الخروج من الصفحة أثناء المعالجة",
+    uploading: "جاري الرفع...",
+    processing: p => `جاري التحسين... ${p}%`,
+    done: "تم بنجاح ✅",
+    failed: "فشل ❌"
+  }
+};
+
+/* ---------- LANGUAGE ---------- */
+const lang = localStorage.getItem("lang") || "en";
+const theme = localStorage.getItem("theme") || "dark";
+
+document.getElementById("langSelect").value = lang;
+document.body.classList.toggle("light", theme === "light");
+
+applyLang(lang);
+
+document.getElementById("langSelect").onchange = e => {
+  localStorage.setItem("lang", e.target.value);
+  location.reload();
+};
+
+document.getElementById("themeToggle").onclick = () => {
+  const newTheme = document.body.classList.contains("light") ? "dark" : "light";
+  localStorage.setItem("theme", newTheme);
+  location.reload();
+};
+
+function applyLang(l) {
+  document.getElementById("title").innerText = TEXT[l].title;
+  document.getElementById("subtitle").innerText = TEXT[l].subtitle;
+  document.getElementById("beforeLabel").innerText = TEXT[l].before;
+  document.getElementById("afterLabel").innerText = TEXT[l].after;
+  document.getElementById("warning").innerText = TEXT[l].warning;
+}
+
+/* ---------- ENHANCE ---------- */
 let busy = false;
 let processId = null;
 
-function estimateTime(file) {
-  const mb = file.size / (1024 * 1024);
-  if (file.type.startsWith("image")) return "~5–10 seconds";
-  if (mb < 100) return "~1–2 minutes";
-  if (mb < 300) return "~3–5 minutes";
-  return "~6–10 minutes";
-}
+document.getElementById("btn").onclick = start;
 
 async function start() {
   if (busy) return;
-
   const file = document.getElementById("file").files[0];
-  if (!file) return alert("اختار ملف");
+  if (!file) return;
 
   const isImage = file.type.startsWith("image");
-
   busy = true;
-  document.getElementById("btn").disabled = true;
+
   document.getElementById("warning").classList.remove("hidden");
-  document.getElementById("eta").innerText =
-    "⏱ Estimated time: " + estimateTime(file);
-
+  document.getElementById("status").innerText = TEXT[lang].uploading;
   document.getElementById("preview").classList.remove("hidden");
-  document.getElementById("status").innerText = "Uploading...";
 
-  // reset
-  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
-    document.getElementById(id).classList.add("hidden");
-  });
+  resetPreview();
 
-  // before preview
   if (isImage) {
-    const img = document.getElementById("beforeImg");
-    img.src = URL.createObjectURL(file);
-    img.classList.remove("hidden");
+    showBeforeImage(file);
   } else {
-    const vid = document.getElementById("beforeVid");
-    vid.src = URL.createObjectURL(file);
-    vid.classList.remove("hidden");
+    showBeforeVideo(file);
   }
 
   const fd = new FormData();
-  fd.append("file", file); // ❗ upload مرة واحدة بس
+  fd.append("file", file);
 
   try {
     const url = isImage ? "/enhance/image" : "/enhance/video";
     const r = await fetch(url, { method: "POST", body: fd });
 
-    /* IMAGE FLOW */
     if (isImage) {
-      const ct = r.headers.get("content-type") || "";
-      if (!ct.includes("image")) throw new Error("Image failed");
       const blob = await r.blob();
-      const out = document.getElementById("afterImg");
-      out.src = URL.createObjectURL(blob);
-      out.classList.remove("hidden");
-      document.getElementById("status").innerText = "Done ✅";
-      finish();
+      document.getElementById("afterImg").src = URL.createObjectURL(blob);
+      document.getElementById("afterImg").classList.remove("hidden");
+      document.getElementById("status").innerText = TEXT[lang].done;
+      busy = false;
       return;
-    }
-
-    /* VIDEO FLOW */
-    if (!r.ok) {
-      const t = await r.text();
-      console.error(t);
-      throw new Error("Video failed");
     }
 
     const j = await r.json();
     processId = j.processId;
     poll();
 
-  } catch (e) {
-    console.error(e);
-    document.getElementById("status").innerText = "Failed ❌";
-    finish();
+  } catch {
+    document.getElementById("status").innerText = TEXT[lang].failed;
+    busy = false;
   }
 }
 
 async function poll() {
-  try {
-    const r = await fetch(`/status/${processId}`);
-    const j = await r.json();
+  const r = await fetch(`/status/${processId}`);
+  const j = await r.json();
 
-    if (j.status === "processing") {
-      document.getElementById("status").innerText =
-        `Enhancing... ${Math.round(j.progress?.percent || 0)}%`;
-      setTimeout(poll, 3000);
-      return;
-    }
-
-    if (j.status === "completed") {
-      const vid = document.getElementById("afterVid");
-      vid.src = j.download.url;
-      vid.classList.remove("hidden");
-      document.getElementById("status").innerText = "Completed ✅";
-    } else {
-      document.getElementById("status").innerText = "Failed ❌";
-    }
-  } catch (e) {
-    console.error(e);
-    document.getElementById("status").innerText = "Connection error";
+  if (j.status === "processing") {
+    document.getElementById("status").innerText =
+      TEXT[lang].processing(Math.round(j.progress?.percent || 0));
+    setTimeout(poll, 3000);
+    return;
   }
 
-  finish();
+  if (j.status === "completed") {
+    document.getElementById("afterVid").src = j.download.url;
+    document.getElementById("afterVid").classList.remove("hidden");
+    document.getElementById("status").innerText = TEXT[lang].done;
+  } else {
+    document.getElementById("status").innerText = TEXT[lang].failed;
+  }
+
+  busy = false;
 }
 
-function finish() {
-  busy = false;
-  document.getElementById("btn").disabled = false;
+/* ---------- HELPERS ---------- */
+function resetPreview() {
+  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
+    document.getElementById(id).classList.add("hidden");
+  });
+}
+
+function showBeforeImage(file) {
+  const img = document.getElementById("beforeImg");
+  img.src = URL.createObjectURL(file);
+  img.classList.remove("hidden");
+}
+
+function showBeforeVideo(file) {
+  const vid = document.getElementById("beforeVid");
+  vid.src = URL.createObjectURL(file);
+  vid.classList.remove("hidden");
 }
