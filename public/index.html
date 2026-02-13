@@ -3,34 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Image & Video Enhancer</title>
+  <title>AI Video Enhancer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="app">
 
-  <!-- HEADER -->
   <header class="top">
-    <h1>AI Image & Video Enhancer</h1>
-    <p>Ultra Quality • Before / After • AI Powered</p>
+    <h1>AI Video Enhancer</h1>
+    <p>Ultra Quality • ASTRA FPS Boost • Premium Models</p>
   </header>
 
   <!-- CONTROLS -->
   <div class="controls">
     <input type="file" id="file" accept="image/*,video/*">
 
-    <select id="mode">
-      <option value="ultra">Ultra Quality</option>
-      <option value="balanced">Balanced</option>
-      <option value="fast">Fast</option>
-    </select>
-
-    <select id="fps">
-      <option value="auto">FPS Auto</option>
-      <option value="24">24 FPS</option>
-      <option value="30">30 FPS</option>
-      <option value="60">60 FPS</option>
+    <select id="preset">
+      <option value="ultra">Ultra 4K (Max Quality)</option>
+      <option value="astra">ASTRA (FPS Boost)</option>
     </select>
 
     <button id="btn">Enhance</button>
@@ -62,15 +53,11 @@
 
   <!-- DOWNLOAD -->
   <div id="actions" class="actions hidden">
-    <a id="downloadBtn" class="download" download>
-      ⬇️ Download Result
-    </a>
+    <button id="downloadBtn" class="download">⬇️ Download Video</button>
   </div>
 
-  <!-- FOOTER -->
   <footer>
-    Powered by Topaz AI • Built by
-    <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
+    Powered by Topaz Premium API
   </footer>
 
 </div>
