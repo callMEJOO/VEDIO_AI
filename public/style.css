@@ -57,10 +57,6 @@ body {
   margin: 30px 0;
 }
 
-.header h1 {
-  margin-bottom: 10px;
-}
-
 .header p {
   color: var(--muted);
 }
@@ -68,15 +64,13 @@ body {
 /* CONTROLS */
 .controls {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
   justify-content: center;
+  margin-bottom: 15px;
 }
 
 .controls input,
-.controls select,
 .controls button {
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
   border: none;
 }
@@ -106,7 +100,7 @@ body {
 .preview {
   display: flex;
   gap: 20px;
-  margin-top: 30px;
+  margin-top: 25px;
 }
 
 .panel {
@@ -122,9 +116,20 @@ video {
   border-radius: 10px;
 }
 
+/* DOWNLOAD */
+.download {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #000;
+  font-weight: bold;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
 /* STATUS */
-#status,
-#eta {
+#status {
   text-align: center;
   margin-top: 15px;
   font-weight: bold;
@@ -135,4 +140,20 @@ footer {
   text-align: center;
   margin-top: 50px;
   font-size: 13px;
-  color: var(--mute
+  color: var(--muted);
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .preview {
+    flex-direction: column;
+  }
+  .panel {
+    width: 100%;
+  }
+}
