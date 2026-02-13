@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Enhancer</title>
+  <title>AI Image & Video Enhancer</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="app">
 
-  <!-- TOP -->
-  <div class="top">
+  <!-- HEADER -->
+  <header class="top">
     <h1>AI Image & Video Enhancer</h1>
-    <p>High Quality • Before / After • Automatic</p>
-  </div>
+    <p>Ultra Quality • Before / After • AI Powered</p>
+  </header>
 
   <!-- CONTROLS -->
   <div class="controls">
     <input type="file" id="file" accept="image/*,video/*">
-    <button id="btn">Enhance</button>
+    <button id="btn">Enhance (Ultra)</button>
   </div>
 
-  <!-- LOADING -->
+  <!-- LOADER -->
   <div id="loader" class="loader hidden">
     <div class="spinner"></div>
     <p id="loaderText">Uploading…</p>
@@ -46,10 +46,20 @@
   <!-- STATUS -->
   <p id="status" class="status"></p>
 
-  <!-- ACTIONS -->
+  <!-- DOWNLOAD -->
   <div id="actions" class="actions hidden">
-    <a id="downloadBtn" class="download" download>⬇️ Download Result</a>
+    <a id="downloadBtn" class="download" download>
+      ⬇️ Download Result
+    </a>
   </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>
+      Powered by Topaz AI<br>
+      Built by <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
+    </p>
+  </footer>
 
 </div>
 
