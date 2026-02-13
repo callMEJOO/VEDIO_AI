@@ -8,20 +8,40 @@
 <body>
 
 <header>
-  <h1>🔥 AI Image & Video Enhancer</h1>
-  <p>Automatic Enhancement • Before / After</p>
+  <h1>✨ AI Image & Video Enhancer</h1>
+  <p>High Quality • Automatic & Manual Control</p>
 </header>
 
 <div class="controls">
-  <select id="mode">
-    <option value="image">🖼 Image</option>
-    <option value="video">🎬 Video</option>
+  <input type="file" id="file" accept="image/*,video/*">
+
+  <select id="quality">
+    <option value="auto">Auto Quality</option>
+    <option value="fast">Fast</option>
+    <option value="hq">High Quality</option>
+    <option value="ultra">Ultra (Slow)</option>
   </select>
-  <input type="file" id="file" />
+
+  <select id="model">
+    <option value="auto">Auto Model</option>
+    <option value="proteus">Proteus</option>
+    <option value="iris">Iris (Faces)</option>
+    <option value="artemis">Artemis HQ</option>
+  </select>
+
   <button id="btn" onclick="start()">Enhance</button>
 </div>
 
-<div class="preview hidden" id="preview">
+<!-- WARNING -->
+<div id="warning" class="warning hidden">
+  ⚠️ من فضلك متطلعش من الصفحة يدولي
+</div>
+
+<!-- EST TIME -->
+<p id="eta"></p>
+
+<!-- PREVIEW -->
+<div id="preview" class="preview hidden">
   <div class="panel">
     <h3>Before</h3>
     <img id="beforeImg" class="hidden">
@@ -38,15 +58,13 @@
 <p id="status"></p>
 
 <footer>
-  <p>
-    Contact Owner:
+  <p class="watermark">
+    © AI Enhancer • Powered by Topaz API  
+    <br>
+    Owner:
     <a href="https://www.tiktok.com/@0ver4me?_r=1&_t=ZS-93t1Gk1hUjo" target="_blank">
-      TikTok @0ver4me
+      @0ver4me
     </a>
-  </p>
-  <p>
-    For ScenePack HQ Clips:
-    <a href="https://scenepacks.com/" target="_blank">scenepacks.com</a>
   </p>
 </footer>
 
