@@ -1,66 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Video Enhancer</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Enhancer</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="dark">
 
-<div class="app">
-
-  <header class="top">
-    <h1>AI Video Enhancer</h1>
-    <p>Ultra Quality • ASTRA FPS Boost • Premium Models</p>
-  </header>
-
-  <!-- CONTROLS -->
-  <div class="controls">
-    <input type="file" id="file" accept="image/*,video/*">
-
-    <select id="preset">
-      <option value="ultra">Ultra 4K (Max Quality)</option>
-      <option value="astra">ASTRA (FPS Boost)</option>
+<header>
+  <h1>AI Video Enhancer</h1>
+  <div class="top-actions">
+    <select id="lang">
+      <option value="en">English</option>
+      <option value="ar">العربية</option>
     </select>
-
-    <button id="btn">Enhance</button>
+    <button id="mode">🌙</button>
   </div>
+</header>
 
-  <!-- LOADER -->
-  <div id="loader" class="loader hidden">
-    <div class="spinner"></div>
-    <p id="loaderText">Uploading…</p>
-  </div>
+<main>
+  <input type="file" id="file" accept="image/*,video/*">
 
-  <!-- PREVIEW -->
-  <div id="preview" class="preview hidden">
-    <div class="panel">
+  <select id="model">
+    <option value="prob-4">Ultra (Best Overall)</option>
+    <option value="rhea-1">Clean Video</option>
+    <option value="iris-2">Faces v2</option>
+    <option value="iris-3">Faces v3 HQ</option>
+    <option value="nyx-3">Anime</option>
+    <option value="slf-2">Strong Denoise</option>
+    <option value="thf-4">Stabilize</option>
+    <option value="wonder-1">Creative</option>
+  </select>
+
+  <button id="enhance">Enhance</button>
+
+  <p id="warn" class="hidden">⚠️ Please do not leave this page</p>
+
+  <div id="loader" class="hidden">⏳ Processing… <span id="eta"></span></div>
+
+  <div class="compare">
+    <div>
       <h3>Before</h3>
-      <img id="beforeImg" class="hidden">
-      <video id="beforeVid" class="hidden" controls></video>
+      <video id="before" controls></video>
+      <img id="beforeImg">
     </div>
-
-    <div class="panel">
+    <div>
       <h3>After</h3>
-      <img id="afterImg" class="hidden">
-      <video id="afterVid" class="hidden" controls></video>
+      <video id="after" controls></video>
+      <img id="afterImg">
     </div>
   </div>
 
-  <!-- STATUS -->
-  <p id="status" class="status"></p>
+  <button id="download" class="hidden">⬇ Download</button>
 
-  <!-- DOWNLOAD -->
-  <div id="actions" class="actions hidden">
-    <button id="downloadBtn" class="download">⬇️ Download Video</button>
-  </div>
-
-  <footer>
-    Powered by Topaz Premium API
-  </footer>
-
-</div>
+  <a href="https://scenepacks.com/" class="back">← ScenePacks</a>
+</main>
 
 <script src="app.js"></script>
 </body>
