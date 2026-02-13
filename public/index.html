@@ -1,144 +1,31 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>UltraVision AI — تحسين الفيديو والصور</title>
-  <link rel="stylesheet" href="style.css" />
-  <style>#loaderOverlay{display:none!important}</style>
+<meta charset="UTF-8">
+<title>Topaz Enhancer</title>
+<style>
+body{font-family:sans-serif;background:#0f0f0f;color:#fff;text-align:center}
+.box{margin:40px auto;padding:20px;width:320px;background:#1c1c1c;border-radius:12px}
+input,button{width:100%;margin:10px 0;padding:10px;border-radius:8px}
+button{background:#00ffaa;border:none;font-weight:bold}
+</style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 120 32" aria-hidden="true">
-        <defs>
-          <linearGradient id="uvg" x1="0" y1="0" x2="1" y2="1">
-            <stop stop-color="#5b8cff"/>
-            <stop offset="1" stop-color="#8a5bff"/>
-          </linearGradient>
-        </defs>
-        <text x="0" y="23" font-size="22" font-weight="800" fill="url(#uvg)">UltraVision</text>
-        <text x="108" y="23" font-size="14" font-weight="700" fill="#c8d2ff">AI</text>
-      </svg>
-      <span class="subtitle" data-i18n="subtitle">تحسين وتكبير — صور / فيديو</span>
-    </div>
+<div class="box">
+<h2>🔥 Video Enhancer</h2>
+<input type="file" id="file">
+<button onclick="go()">Enhance</button>
+<pre id="out"></pre>
+</div>
 
-    <nav class="actions-bar">
-      <select id="langSelect" class="btn btn-ghost">
-        <option value="ar" selected>العربية</option>
-        <option value="en">English</option>
-      </select>
-      <a id="downloadBtn" class="btn btn-accent" style="display:none" data-i18n="download">⬇ تنزيل النتيجة</a>
-      <button id="resetBtn" class="btn btn-ghost" data-i18n="reset">إعادة ضبط</button>
-    </nav>
-  </header>
-
-  <section class="controls">
-    <!-- ===== Brand line (شعار SVG شفاف) ===== -->
-    <div class="brandline">
-      <svg class="wordmark" viewBox="0 0 360 64" aria-hidden="true">
-        <defs>
-          <linearGradient id="uv-wordgrad" x1="0" y1="0" x2="1" y2="1">
-            <stop stop-color="#5B8CFF"/>
-            <stop offset="1" stop-color="#8A5BFF"/>
-          </linearGradient>
-        </defs>
-        <text x="0" y="44" font-size="44" font-weight="800" fill="url(#uv-wordgrad)">UltraVision</text>
-        <text x="300" y="44" font-size="24" font-weight="700" fill="#c8d2ff">AI</text>
-      </svg>
-      <span class="dot">•</span>
-      <span class="subtitle" data-i18n="subtitle">تحسين وتكبير — صور / فيديو</span>
-    </div>
-
-    <!-- ===== Uploader (زر واحد + Dropzone) ===== -->
-    <div class="uploader">
-      <input id="fileInput" type="file" accept="image/*,video/*" class="visually-hidden" />
-      <button id="pickBtn" type="button" class="btn btn-accent" data-i18n="pick_file">اختيار ملف</button>
-      <div id="dropzone" class="dropzone">اسحب وأفلت ملف هنا أو اضغط “اختيار ملف”</div>
-    </div>
-
-    <div class="row">
-      <select id="modelSelect" title="الموديل"></select>
-      <select id="optionSelect" title="خيار الموديل"><option value="" data-i18n="none">(لا يوجد)</option></select>
-
-      <select id="scaleSelect" title="التكبير">
-        <option value="1x">1×</option>
-        <option value="2x" selected>2×</option>
-        <option value="4x">4×</option>
-      </select>
-
-      <select id="formatSelect" title="الصيغة">
-        <option value="jpeg">JPEG</option>
-        <option value="png">PNG</option>
-        <option value="webp">WEBP</option>
-        <option value="mp4">MP4</option>
-      </select>
-
-      <select id="fpsTarget" title="FPS">
-        <option value="">FPS</option>
-        <option value="30">30</option>
-        <option value="60">60</option>
-        <option value="90">90</option>
-        <option value="120">120</option>
-      </select>
-
-      <button id="enhanceBtn" class="btn btn-accent" data-i18n="run_enhance">تشغيل التحسين</button>
-      <a id="downloadBtn2" class="btn btn-ghost" style="display:none" data-i18n="download">⬇ تنزيل النتيجة</a>
-    </div>
-
-    <div class="tune">
-      <label>Sharpen
-        <input id="ctlSharpen" type="range" min="0" max="100" value="0" />
-        <span class="range-val" id="valSharpen">0%</span>
-      </label>
-      <label>Denoise
-        <input id="ctlDenoise" type="range" min="0" max="100" value="0" />
-        <span class="range-val" id="valDenoise">0%</span>
-      </label>
-      <label>Recover
-        <input id="ctlRecover" type="range" min="0" max="100" value="0" />
-        <span class="range-val" id="valRecover">0%</span>
-      </label>
-      <label>Grain
-        <input id="ctlGrain" type="range" min="0" max="100" value="0" />
-        <span class="range-val" id="valGrain">0%</span>
-      </label>
-    </div>
-  </section>
-
-  <main class="preview">
-    <section class="pane">
-      <h3 data-i18n="before">قبل</h3>
-      <img id="beforeImg" alt="" />
-      <video id="beforeVideo" controls playsinline></video>
-    </section>
-    <section class="pane">
-      <h3 data-i18n="after">بعد</h3>
-      <img id="afterImg" alt="" />
-      <video id="afterVideo" controls playsinline></video>
-    </section>
-  </main>
-
-  <section class="status">
-    <div class="progress">
-      <div id="bar"></div>
-      <div id="pctLabel">0%</div>
-    </div>
-    <div id="statusText"></div>
-  </section>
-
-  <div id="loaderOverlay" class="overlay" aria-hidden="true" hidden style="display:none">
-    <div class="spinner"></div>
-    <div class="overlay-text" id="overlayText" data-i18n="overlay_preparing">جاري تجهيز الفيديو...</div>
-    <div class="overlay-pct" id="overlayPct">—</div>
-  </div>
-
-  <div id="toast" class="toast" hidden></div>
-  <div id="debug" class="debug" style="display:none"></div>
-
-  <footer class="footer">© <span id="year"></span> UltraVision AI</footer>
-
-  <script>document.getElementById("year").textContent=new Date().getFullYear();</script>
-  <script src="app.js"></script>
+<script>
+async function go(){
+  const f=document.getElementById("file").files[0];
+  const fd=new FormData(); fd.append("file",f);
+  const r=await fetch("/enhance/video",{method:"POST",body:fd});
+  const j=await r.json();
+  document.getElementById("out").innerText=JSON.stringify(j,null,2);
+}
+</script>
 </body>
 </html>
