@@ -14,7 +14,7 @@ app.use(express.static("public"));
 /* ================= UPLOAD ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 800 } // 800MB
+  limits: { fileSize: 1024 * 1024 * 300 } // 300MB (آمن على Render)
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
@@ -74,39 +74,23 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
 
 /* ================= VIDEO ================= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
-  const input = req.file?.path;
-  if (!input) return res.status(400).json({ error: "No video" });
-
-  let videoPath = input;
-  const ext = path.extname(req.file.originalname).toLowerCase();
+  const tmp = req.file?.path;
+  if (!tmp) return res.status(400).json({ error: "No video file" });
 
   try {
-    /* ---------- FORCE MP4 ---------- */
-    if (ext !== ".mp4") {
-      const mp4 = input + "_converted.mp4";
-      await new Promise((res, rej) =>
-        execFile(
-          "ffmpeg",
-          ["-y","-i",input,"-c:v","libx264","-pix_fmt","yuv420p","-c:a","aac",mp4],
-          e => e ? rej(e) : res()
-        )
-      );
-      videoPath = mp4;
-    }
-
     /* ---------- METADATA ---------- */
-    const meta = await probe(videoPath);
+    const meta = await probe(tmp);
     const v = meta.streams.find(s=>s.codec_type==="video");
     if (!v) throw new Error("No video stream");
 
     const width = v.width;
     const height = v.height;
-    const fps = parseFPS(v.avg_frame_rate||v.r_frame_rate);
+    const fps = parseFPS(v.avg_frame_rate || v.r_frame_rate);
     const duration = Number(meta.format.duration);
-    const size = fs.statSync(videoPath).size;
+    const size = Number(meta.format.size);
     const frames = Math.max(1, Math.round(duration * fps));
 
-    /* ---------- SCALE (SMART) ---------- */
+    /* ---------- SCALE (SMART & SAFE) ---------- */
     let outRes = { width, height };
     if (width < 1280) {
       outRes = { width: width * 2, height: height * 2 };
@@ -117,32 +101,31 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       };
     }
 
-    /* ---------- CREATE ---------- */
+    /* ---------- CREATE (TOPAZ NEW MODEL) ---------- */
     const create = await axios.post(
       "https://api.topazlabs.com/video/",
       {
         source:{
-          container:"mp4",
+          container: "mp4",
           size,
           duration,
-          frameCount:frames,
-          frameRate:fps,
-          resolution:{width,height}
+          frameCount: frames,
+          frameRate: fps,
+          resolution: { width, height }
         },
         output:{
-          container:"mp4",
-          resolution:outRes,
-          frameRate:fps,
-          dynamicCompressionLevel:"Low"
+          container: "mp4",
+          resolution: outRes,
+          frameRate: fps,
+          dynamicCompressionLevel: "Low"
         },
         filters:[{
-          model:"Proteus",
-          model_option:"prob-3",
-          params:{
-            denoise:12,
-            sharpen:8,
-            recover:10,
-            grain:0
+          model: "prob-4",
+          params: {
+            denoise: 10,
+            sharpen: 6,
+            recover: 8,
+            grain: 0
           }
         }]
       },
@@ -162,24 +145,27 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const partSize = Math.ceil(size / urls.length);
     const uploadResults = [];
 
-    /* ---------- MULTIPART ---------- */
-    for (let i=0;i<urls.length;i++){
-      const start=i*partSize;
-      const end=Math.min(size,(i+1)*partSize)-1;
-      const len=end-start+1;
+    /* ---------- MULTIPART UPLOAD ---------- */
+    for (let i = 0; i < urls.length; i++) {
+      const start = i * partSize;
+      const end = Math.min(size, (i + 1) * partSize) - 1;
+      const len = end - start + 1;
 
       const r = await axios.put(
         urls[i],
-        fs.createReadStream(videoPath,{start,end}),
+        fs.createReadStream(tmp, { start, end }),
         {
           headers:{ "Content-Length": len },
-          validateStatus:s=>s>=200&&s<400
+          validateStatus: s => s >= 200 && s < 400
         }
       );
 
+      const etag = r.headers.etag;
+      if (!etag) throw new Error("Missing ETag");
+
       uploadResults.push({
-        partNum:i+1,
-        eTag:r.headers.etag.replace(/"/g,"")
+        partNum: i + 1,
+        eTag: etag.replace(/"/g,"")
       });
     }
 
@@ -187,7 +173,12 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     await axios.patch(
       `https://api.topazlabs.com/video/${requestId}/complete-upload/`,
       { uploadResults },
-      { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
+      {
+        headers:{
+          "X-API-Key": process.env.TOPAZ_API_KEY,
+          "Content-Type": "application/json"
+        }
+      }
     );
 
     res.json({ processId: requestId });
@@ -199,7 +190,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       details: e.response?.data || e.message
     });
   } finally {
-    safeUnlink(input);
+    safeUnlink(tmp);
   }
 });
 
@@ -212,10 +203,10 @@ app.get("/status/:id", async (req,res)=>{
     );
     res.json(r.data);
   } catch {
-    res.status(500).json({ status:"error" });
+    res.status(500).json({ status: "error" });
   }
 });
 
 /* ================= START ================= */
-const PORT = 3000;
-app.listen(PORT,()=>console.log("🔥 Server running on 3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=>console.log("🔥 Server running on", PORT));
