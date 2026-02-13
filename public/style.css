@@ -23,12 +23,13 @@ body {
 /* CONTROLS */
 .controls {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 10px;
 }
 
 .controls input,
+.controls select,
 .controls button {
   padding: 12px;
   border-radius: 8px;
