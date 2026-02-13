@@ -9,14 +9,14 @@ const ffprobePath = require("ffprobe-static").path;
 const app = express();
 app.use(express.static("public"));
 
-/* ========= UPLOAD ========= */
+/* ================= UPLOAD ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 500 }
+  limits: { fileSize: 1024 * 1024 * 600 }
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
-/* ========= HELPERS ========= */
+/* ================= HELPERS ================= */
 const probe = p =>
   new Promise((res, rej) =>
     execFile(
@@ -35,19 +35,25 @@ const parseFPS = s => {
   return Number(s) || 30;
 };
 
-/* ========= MODELS ========= */
+/* ================= MODELS ================= */
 const VIDEO_MODELS = {
-  "prob-4": { label: "Ultra (Best Overall)", scale: 4, params:{ denoise:6, sharpen:8, recover:10, grain:0 }},
-  "rhea-1": { label: "Clean Video", scale: 3 },
-  "iris-2": { label: "Faces v2", scale: 2 },
-  "iris-3": { label: "Faces v3 HQ", scale: 2 },
-  "nyx-3": { label: "Anime / Cartoon", scale: 4 },
-  "slf-2": { label: "Strong Denoise", scale: 2 },
-  "thf-4": { label: "Stabilize", scale: 2 },
-  "wonder-1": { label: "Creative", scale: 2 }
+  "prob-4":       { type:"normal", scale:2 },
+  "prob-4-4k":    { type:"normal", scale:4 },
+  "rhea-1":       { type:"normal", scale:3 },
+  "iris-2":       { type:"normal", scale:2 },
+  "iris-3":       { type:"normal", scale:2 },
+  "nyx-3":        { type:"normal", scale:4 },
+  "thf-4":        { type:"normal", scale:2 },
+
+  // 🚀 ASTRA FPS
+  "astra-60": {
+    type:"astra",
+    scale:2,
+    fps:60
+  }
 };
 
-/* ========= IMAGE ========= */
+/* ================= IMAGE ================= */
 app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).send("No image");
@@ -79,7 +85,7 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ========= VIDEO ========= */
+/* ================= VIDEO ================= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).json({ error:"No video" });
@@ -96,15 +102,28 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const hasAudio = meta.streams.some(s=>s.codec_type==="audio");
     const width = v.width;
     const height = v.height;
-    const fps = parseFPS(v.avg_frame_rate || v.r_frame_rate);
+    const fpsSrc = parseFPS(v.avg_frame_rate || v.r_frame_rate);
     const duration = Number(meta.format.duration);
     const size = Number(meta.format.size);
-    const frameCount = Math.round(duration * fps);
+    const frameCount = Math.round(duration * fpsSrc);
 
     const outRes = {
       width: Math.min(width * model.scale, 3840),
       height: Math.min(height * model.scale, 2160)
     };
+
+    let filters = [];
+    let outputFPS = fpsSrc;
+
+    if (model.type === "astra") {
+      filters = [
+        { model:"slf-2" },
+        { model:"apo-8", fps:60, slowmo:1 }
+      ];
+      outputFPS = 60;
+    } else {
+      filters = [{ model: modelKey }];
+    }
 
     const body = {
       source:{
@@ -112,25 +131,27 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
         size,
         duration,
         frameCount,
-        frameRate: fps,
+        frameRate: fpsSrc,
         resolution:{ width, height }
       },
       output:{
         container:"mp4",
         resolution: outRes,
-        frameRate: fps,
+        frameRate: outputFPS,
         audioTransfer: hasAudio ? "Copy" : "None",
         ...(hasAudio ? { audioCodec:"AAC" } : {}),
         videoEncoder:"H264",
         videoProfile:"High",
-        dynamicCompressionLevel:"Low"
+        dynamicCompressionLevel:"High",
+        videoBitrate: model.type==="astra" ? 540540 : undefined
       },
-      filters:[
-        {
-          model: modelKey,
-          ...(model.params ? { params:model.params } : {})
+      ...(model.type==="astra" ? {
+        overrides:{ isPaidDiffusion:true },
+        notifications:{
+          webhookUrl:"https://astra.app/api/hooks/video-status"
         }
-      ]
+      } : {}),
+      filters
     };
 
     const create = await axios.post(
@@ -182,7 +203,7 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ========= STATUS ========= */
+/* ================= STATUS ================= */
 app.get("/status/:id", async (req,res)=>{
   const r = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -191,7 +212,7 @@ app.get("/status/:id", async (req,res)=>{
   res.json(r.data);
 });
 
-/* ========= DOWNLOAD ========= */
+/* ================= DOWNLOAD ================= */
 app.get("/video/download/:id", async (req,res)=>{
   const st = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -206,4 +227,4 @@ app.get("/video/download/:id", async (req,res)=>{
   stream.data.pipe(res);
 });
 
-app.listen(process.env.PORT || 3000, ()=>console.log("Server running"));
+app.listen(process.env.PORT || 3000, ()=>console.log("🚀 Server running"));
