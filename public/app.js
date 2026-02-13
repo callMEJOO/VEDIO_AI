@@ -6,8 +6,10 @@ const btn = document.getElementById("btn");
 const loader = document.getElementById("loader");
 const loaderText = document.getElementById("loaderText");
 const statusEl = document.getElementById("status");
+const downloadBtn = document.getElementById("downloadBtn");
 
 btn.onclick = start;
+downloadBtn.onclick = downloadVideo;
 
 /* RESET UI */
 function resetUI() {
@@ -30,6 +32,7 @@ async function start() {
   resetUI();
   busy = true;
 
+  const preset = document.getElementById("preset").value;
   const isImage = file.type.startsWith("image");
 
   document.getElementById("preview").classList.remove("hidden");
@@ -41,45 +44,35 @@ async function start() {
 
   const fd = new FormData();
   fd.append("file", file);
+  fd.append("preset", preset);
 
-  try {
-    const url = isImage ? "/enhance/image" : "/enhance/video";
-    const r = await fetch(url, { method: "POST", body: fd });
+  const url = isImage ? "/enhance/image" : "/enhance/video";
+  const r = await fetch(url, { method: "POST", body: fd });
 
-    if (isImage) {
-      const blob = await r.blob();
-      const out = URL.createObjectURL(blob);
-
-      document.getElementById("afterImg").src = out;
-      document.getElementById("afterImg").classList.remove("hidden");
-
-      setupDownload(out, "enhanced-image.png");
-      loader.classList.add("hidden");
-      statusEl.innerText = "✅ Completed";
-      busy = false;
-      return;
-    }
-
-    const j = await r.json();
-    processId = j.processId;
-    poll();
-
-  } catch {
+  if (isImage) {
+    const blob = await r.blob();
+    const out = URL.createObjectURL(blob);
+    document.getElementById("afterImg").src = out;
+    document.getElementById("afterImg").classList.remove("hidden");
     loader.classList.add("hidden");
-    statusEl.innerText = "❌ Failed";
+    statusEl.innerText = "✅ Completed";
     busy = false;
+    return;
   }
+
+  const j = await r.json();
+  processId = j.processId;
+  poll();
 }
 
 /* POLL STATUS */
 async function poll() {
-  loaderText.innerText = "Enhancing (Ultra Quality)…";
-
   const r = await fetch(`/status/${processId}`);
   const j = await r.json();
 
   if (j.status === "initializing") {
-    statusEl.innerText = "⏳ In queue…";
+    const t = j.estimates?.time?.[0] || 300;
+    statusEl.innerText = `⏳ In queue… ~${Math.ceil(t/60)} min`;
     setTimeout(poll, 5000);
     return;
   }
@@ -90,31 +83,41 @@ async function poll() {
     return;
   }
 
-  if (j.status === "complete" || j.status === "completed") {
-    const url = j.download.url;
-    document.getElementById("afterVid").src = url;
-    document.getElementById("afterVid").classList.remove("hidden");
+  if (j.status === "postprocessing") {
+    statusEl.innerText = "🎞️ Finalizing output…";
+    setTimeout(poll, 4000);
+    return;
+  }
 
-    setupDownload(url, "enhanced-video.mp4");
+  if (j.status === "complete" || j.status === "completed") {
+    document.getElementById("afterVid").src = `/video/download/${processId}`;
+    document.getElementById("afterVid").classList.remove("hidden");
     loader.classList.add("hidden");
+    document.getElementById("actions").classList.remove("hidden");
     statusEl.innerText = "✅ Completed";
     busy = false;
     return;
   }
 
-  loader.classList.add("hidden");
-  statusEl.innerText = "❌ Failed";
-  busy = false;
+  setTimeout(poll, 5000);
+}
+
+/* DOWNLOAD (no new tab) */
+async function downloadVideo() {
+  const r = await fetch(`/video/download/${processId}`);
+  const blob = await r.blob();
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "enhanced-video.mp4";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /* HELPERS */
-function setupDownload(url, name) {
-  const btn = document.getElementById("downloadBtn");
-  btn.href = url;
-  btn.download = name;
-  document.getElementById("actions").classList.remove("hidden");
-}
-
 function showBeforeImage(file) {
   const img = document.getElementById("beforeImg");
   img.src = URL.createObjectURL(file);
