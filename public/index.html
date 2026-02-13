@@ -8,9 +8,19 @@
 <body>
 
 <header>
-  <h1>✨ AI Image & Video Enhancer</h1>
-  <p>Before / After • Automatic & Manual Control</p>
+  <h1 id="title">AI Image & Video Enhancer</h1>
+  <p id="subtitle">
+    Enhance images and videos using AI<br>
+    Before / After • High Quality • Automatic
+  </p>
 </header>
+
+<div class="top-bar">
+  <select id="lang" onchange="setLang(this.value)">
+    <option value="en" selected>English</option>
+    <option value="ar">العربية</option>
+  </select>
+</div>
 
 <div class="controls">
   <input type="file" id="file" accept="image/*,video/*">
@@ -33,20 +43,20 @@
 </div>
 
 <div id="warning" class="warning hidden">
-  ⚠️ من فضلك متطلعش من الصفحة أثناء المعالجة
+  ⚠️ Please do not leave or close this page while processing
 </div>
 
 <p id="eta"></p>
 
 <div id="preview" class="preview hidden">
   <div class="panel">
-    <h3>Before</h3>
+    <h3 id="beforeLabel">Before</h3>
     <img id="beforeImg" class="hidden">
     <video id="beforeVid" class="hidden" controls></video>
   </div>
 
   <div class="panel">
-    <h3>After</h3>
+    <h3 id="afterLabel">After</h3>
     <img id="afterImg" class="hidden">
     <video id="afterVid" class="hidden" controls></video>
   </div>
