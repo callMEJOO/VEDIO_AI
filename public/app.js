@@ -1,36 +1,29 @@
 const TEXT = {
   en: {
-    title: "AI Image & Video Enhancer",
-    subtitle: "Enhance images and videos using AI\nBefore / After • High Quality • Automatic",
     before: "Before",
     after: "After",
-    warning: "⚠️ Please do not leave or close this page while processing",
     uploading: "Uploading...",
-    processing: p => `Enhancing... ${p}%`,
-    done: "Done ✅",
-    failed: "Failed ❌"
+    queued: m => `⏳ In queue... Estimated ~${m} min`,
+    processing: p => `⚙️ Enhancing... ${p}%`,
+    done: "✅ Completed",
+    failed: "❌ Failed"
   },
   ar: {
-    title: "محسن الصور والفيديو بالذكاء الاصطناعي",
-    subtitle: "تحسين الصور والفيديوهات بالذكاء الاصطناعي\nقبل / بعد • جودة عالية • تلقائي",
     before: "قبل",
     after: "بعد",
-    warning: "⚠️ برجاء عدم الخروج من الصفحة أثناء المعالجة",
     uploading: "جاري الرفع...",
-    processing: p => `جاري التحسين... ${p}%`,
-    done: "تم بنجاح ✅",
-    failed: "فشل ❌"
+    queued: m => `⏳ في الانتظار... حوالي ${m} دقيقة`,
+    processing: p => `⚙️ جاري التحسين... ${p}%`,
+    done: "✅ تم بنجاح",
+    failed: "❌ فشل"
   }
 };
 
-/* ---------- LANGUAGE ---------- */
 const lang = localStorage.getItem("lang") || "en";
 const theme = localStorage.getItem("theme") || "dark";
 
 document.getElementById("langSelect").value = lang;
 document.body.classList.toggle("light", theme === "light");
-
-applyLang(lang);
 
 document.getElementById("langSelect").onchange = e => {
   localStorage.setItem("lang", e.target.value);
@@ -38,20 +31,14 @@ document.getElementById("langSelect").onchange = e => {
 };
 
 document.getElementById("themeToggle").onclick = () => {
-  const newTheme = document.body.classList.contains("light") ? "dark" : "light";
-  localStorage.setItem("theme", newTheme);
+  const t = document.body.classList.contains("light") ? "dark" : "light";
+  localStorage.setItem("theme", t);
   location.reload();
 };
 
-function applyLang(l) {
-  document.getElementById("title").innerText = TEXT[l].title;
-  document.getElementById("subtitle").innerText = TEXT[l].subtitle;
-  document.getElementById("beforeLabel").innerText = TEXT[l].before;
-  document.getElementById("afterLabel").innerText = TEXT[l].after;
-  document.getElementById("warning").innerText = TEXT[l].warning;
-}
+document.getElementById("beforeLabel").innerText = TEXT[lang].before;
+document.getElementById("afterLabel").innerText = TEXT[lang].after;
 
-/* ---------- ENHANCE ---------- */
 let busy = false;
 let processId = null;
 
@@ -68,14 +55,12 @@ async function start() {
   document.getElementById("warning").classList.remove("hidden");
   document.getElementById("status").innerText = TEXT[lang].uploading;
   document.getElementById("preview").classList.remove("hidden");
+  document.getElementById("downloadBtn").classList.add("hidden");
 
   resetPreview();
 
-  if (isImage) {
-    showBeforeImage(file);
-  } else {
-    showBeforeVideo(file);
-  }
+  if (isImage) showBeforeImage(file);
+  else showBeforeVideo(file);
 
   const fd = new FormData();
   fd.append("file", file);
@@ -86,8 +71,10 @@ async function start() {
 
     if (isImage) {
       const blob = await r.blob();
-      document.getElementById("afterImg").src = URL.createObjectURL(blob);
+      const outUrl = URL.createObjectURL(blob);
+      document.getElementById("afterImg").src = outUrl;
       document.getElementById("afterImg").classList.remove("hidden");
+      setupDownload(outUrl, "enhanced-image.jpg");
       document.getElementById("status").innerText = TEXT[lang].done;
       busy = false;
       return;
@@ -107,6 +94,13 @@ async function poll() {
   const r = await fetch(`/status/${processId}`);
   const j = await r.json();
 
+  if (j.status === "initializing") {
+    const min = Math.round((j.estimates?.time?.[0] || 300) / 60);
+    document.getElementById("status").innerText = TEXT[lang].queued(min);
+    setTimeout(poll, 5000);
+    return;
+  }
+
   if (j.status === "processing") {
     document.getElementById("status").innerText =
       TEXT[lang].processing(Math.round(j.progress?.percent || 0));
@@ -115,17 +109,27 @@ async function poll() {
   }
 
   if (j.status === "completed") {
-    document.getElementById("afterVid").src = j.download.url;
+    const url = j.download.url;
+    document.getElementById("afterVid").src = url;
     document.getElementById("afterVid").classList.remove("hidden");
+    setupDownload(url, "enhanced-video.mp4");
     document.getElementById("status").innerText = TEXT[lang].done;
-  } else {
-    document.getElementById("status").innerText = TEXT[lang].failed;
+    busy = false;
+    return;
   }
 
+  document.getElementById("status").innerText = TEXT[lang].failed;
   busy = false;
 }
 
-/* ---------- HELPERS ---------- */
+/* HELPERS */
+function setupDownload(url, name) {
+  const btn = document.getElementById("downloadBtn");
+  btn.href = url;
+  btn.download = name;
+  btn.classList.remove("hidden");
+}
+
 function resetPreview() {
   ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
     document.getElementById(id).classList.add("hidden");
