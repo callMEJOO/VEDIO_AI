@@ -13,7 +13,7 @@ app.use(express.static("public"));
 /* ================= UPLOAD ================= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 300 } // 300MB
+  limits: { fileSize: 1024 * 1024 * 500 } // 500MB
 });
 const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
@@ -45,8 +45,8 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
     const form = new FormData();
     form.append("image", fs.createReadStream(tmp));
     form.append("model", "Standard V2");
-    form.append("scale", "2x");
-    form.append("output_format", "jpeg");
+    form.append("scale", "4x");              // 🔥 أقوى Scale
+    form.append("output_format", "png");     // 🔥 أعلى جودة
 
     const r = await axios.post(
       "https://api.topazlabs.com/image/v1/enhance",
@@ -60,7 +60,7 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
       }
     );
 
-    res.set("Content-Type", "image/jpeg");
+    res.set("Content-Type", "image/png");
     res.send(r.data);
 
   } catch (e) {
@@ -71,7 +71,7 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   }
 });
 
-/* ================= VIDEO ================= */
+/* ================= VIDEO (ULTRA QUALITY) ================= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).json({ error: "No video file" });
@@ -91,22 +91,26 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
     const size = Number(meta.format.size);
     const frames = Math.max(1, Math.round(duration * fps));
 
-    /* ---------- SCALE ---------- */
+    /* ---------- ULTRA SCALE (حتى 4K) ---------- */
     let outRes = { width, height };
-    if (width < 1280) {
-      outRes = { width: width * 2, height: height * 2 };
+
+    if (width < 720) {
+      outRes = { width: width * 4, height: height * 4 };
+    } else if (width < 1080) {
+      outRes = { width: width * 3, height: height * 3 };
     } else if (width < 1920) {
-      outRes = {
-        width: Math.round(width * 1.5),
-        height: Math.round(height * 1.5)
-      };
+      outRes = { width: width * 2, height: height * 2 };
     }
 
-    /* ---------- AUDIO SETTINGS (FIX) ---------- */
+    // cap على 4K
+    outRes.width = Math.min(outRes.width, 3840);
+    outRes.height = Math.min(outRes.height, 2160);
+
+    /* ---------- AUDIO ---------- */
     const audioTransfer = hasAudio ? "Convert" : "None";
     const audioCodec = hasAudio ? "AAC" : undefined;
 
-    /* ---------- CREATE ---------- */
+    /* ---------- CREATE JOB ---------- */
     const create = await axios.post(
       "https://api.topazlabs.com/video/",
       {
@@ -124,14 +128,14 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
           frameRate: fps,
           audioTransfer,
           ...(audioCodec ? { audioCodec } : {}),
-          dynamicCompressionLevel: "Low"
+          dynamicCompressionLevel: "Low" // 🔥 أقل ضغط
         },
         filters:[{
           model: "prob-4",
           params: {
-            denoise: 10,
-            sharpen: 6,
-            recover: 8,
+            denoise: 12,   // 🔥 أعلى تنضيف
+            sharpen: 10,   // 🔥 حدة قوية
+            recover: 12,   // 🔥 استرجاع تفاصيل
             grain: 0
           }
         }]
@@ -209,11 +213,11 @@ app.get("/status/:id", async (req,res)=>{
       { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
     res.json(r.data);
-  } catch {
+  } catch (e) {
     res.status(500).json({ status: "error" });
   }
 });
 
 /* ================= START ================= */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=>console.log("🔥 Server running on", PORT));
+app.listen(PORT, ()=>console.log("🔥 ULTRA QUALITY server running on", PORT));
