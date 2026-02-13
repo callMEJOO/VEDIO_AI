@@ -3,76 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Video Enhancer</title>
+<title>AI Enhancer</title>
 <link rel="stylesheet" href="style.css">
 </head>
-
 <body class="dark">
 
 <header class="header">
   <h1>AI Video Enhancer</h1>
-
   <div class="header-actions">
-    <select id="lang">
-      <option value="en">EN</option>
-      <option value="ar">AR</option>
-    </select>
     <button id="modeToggle">🌙</button>
   </div>
 </header>
 
 <main class="container">
-
   <input type="file" id="file" accept="image/*,video/*">
 
   <select id="model">
-    <option value="prob-4">Ultra (Best Overall)</option>
-    <option value="rhea-1">Clean Video</option>
+    <option value="prob-4-4k">Ultra 4K</option>
+    <option value="prob-4">Ultra</option>
+    <option value="rhea-1">Clean</option>
     <option value="iris-2">Faces v2</option>
     <option value="iris-3">Faces v3 HQ</option>
     <option value="nyx-3">Anime</option>
-    <option value="slf-2">Strong Denoise</option>
     <option value="thf-4">Stabilize</option>
-    <option value="wonder-1">Creative</option>
+    <option value="astra-60">🚀 Astra FPS 60</option>
   </select>
 
   <button id="enhanceBtn" class="primary">Enhance</button>
 
-  <!-- WARNING -->
-  <p id="leaveWarn" class="warn hidden">
-    ⚠️ Please do not leave this page while processing
-  </p>
+  <p id="leaveWarn" class="warn hidden">⚠️ Please do not leave this page</p>
 
-  <!-- LOADING -->
   <div id="loading" class="loading hidden">
     <div class="spinner"></div>
-    <p>Enhancing…</p>
-    <small id="eta">Estimated time: calculating…</small>
+    <small id="eta"></small>
   </div>
 
-  <!-- BEFORE / AFTER -->
   <div class="compare">
-    <div>
+    <div class="panel">
       <h3>Before</h3>
-      <video id="beforeVid" controls></video>
-      <img id="beforeImg">
+      <video id="beforeVid" class="hidden" controls></video>
+      <img id="beforeImg" class="hidden">
     </div>
-    <div>
+    <div class="panel">
       <h3>After</h3>
-      <video id="afterVid" controls></video>
-      <img id="afterImg">
+      <video id="afterVid" class="hidden" controls></video>
+      <img id="afterImg" class="hidden">
     </div>
   </div>
 
-  <!-- DOWNLOAD -->
   <button id="downloadBtn" class="download hidden">⬇ Download</button>
 
-  <!-- LINKS -->
   <div class="links">
     <a href="https://scenepacks.com/" target="_blank">🎬 ScenePacks</a>
     <a href="https://www.tiktok.com/@0ver4me" target="_blank">📩 Contact Me</a>
   </div>
-
 </main>
 
 <script src="app.js"></script>
