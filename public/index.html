@@ -19,7 +19,21 @@
   <!-- CONTROLS -->
   <div class="controls">
     <input type="file" id="file" accept="image/*,video/*">
-    <button id="btn">Enhance (Ultra)</button>
+
+    <select id="mode">
+      <option value="ultra">Ultra Quality</option>
+      <option value="balanced">Balanced</option>
+      <option value="fast">Fast</option>
+    </select>
+
+    <select id="fps">
+      <option value="auto">FPS Auto</option>
+      <option value="24">24 FPS</option>
+      <option value="30">30 FPS</option>
+      <option value="60">60 FPS</option>
+    </select>
+
+    <button id="btn">Enhance</button>
   </div>
 
   <!-- LOADER -->
@@ -55,10 +69,8 @@
 
   <!-- FOOTER -->
   <footer>
-    <p>
-      Powered by Topaz AI<br>
-      Built by <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
-    </p>
+    Powered by Topaz AI • Built by
+    <a href="https://www.tiktok.com/@0ver4me" target="_blank">@0ver4me</a>
   </footer>
 
 </div>
