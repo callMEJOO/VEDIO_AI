@@ -1,50 +1,74 @@
-let mode = "image";
+let busy = false;
 let processId = null;
 
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
-  event.target.classList.add("active");
-  document.getElementById("imageBox").classList.add("hidden");
-  document.getElementById("videoBox").classList.add("hidden");
+function estimateTime(file) {
+  const mb = file.size / (1024 * 1024);
+  if (file.type.startsWith("image")) return "~5-10 seconds";
+  if (mb < 100) return "~1-2 minutes";
+  if (mb < 300) return "~3-5 minutes";
+  return "~6-10 minutes";
 }
 
-document.getElementById("slider").addEventListener("input", e => {
-  document.querySelector(".after-wrap").style.width = e.target.value + "%";
-});
-
 async function start() {
-  const file = document.getElementById("file").files[0];
-  if (!file) return alert("Choose a file");
+  if (busy) return;
 
+  const file = document.getElementById("file").files[0];
+  if (!file) return alert("اختار ملف");
+
+  const isImage = file.type.startsWith("image");
+  const quality = document.getElementById("quality").value;
+  const model = document.getElementById("model").value;
+
+  busy = true;
+  document.getElementById("btn").disabled = true;
+  document.getElementById("warning").classList.remove("hidden");
+  document.getElementById("eta").innerText =
+    "⏱ Estimated time: " + estimateTime(file);
+
+  document.getElementById("preview").classList.remove("hidden");
   document.getElementById("status").innerText = "Uploading...";
 
-  const url = mode === "image" ? "/enhance/image" : "/enhance/video";
-  const fd = new FormData();
-  fd.append("file", file);
+  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
+    document.getElementById(id).classList.add("hidden");
+  });
 
-  /* BEFORE PREVIEW */
-  if (mode === "image") {
-    document.getElementById("beforeImg").src = URL.createObjectURL(file);
-    document.getElementById("imageBox").classList.remove("hidden");
+  if (isImage) {
+    const img = document.getElementById("beforeImg");
+    img.src = URL.createObjectURL(file);
+    img.classList.remove("hidden");
   } else {
-    document.getElementById("beforeVid").src = URL.createObjectURL(file);
-    document.getElementById("videoBox").classList.remove("hidden");
+    const vid = document.getElementById("beforeVid");
+    vid.src = URL.createObjectURL(file);
+    vid.classList.remove("hidden");
   }
 
-  const r = await fetch(url, { method: "POST", body: fd });
-  const res = await r.json();
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("quality", quality);
+  fd.append("model", model);
 
-  if (mode === "image") {
-    const blob = await fetch(url, { method: "POST", body: fd }).then(r => r.blob());
-    const outURL = URL.createObjectURL(blob);
-    document.getElementById("afterImg").src = outURL;
-    document.getElementById("downloadImg").href = outURL;
-    document.getElementById("downloadImg").classList.remove("hidden");
-    document.getElementById("status").innerText = "Done ✅";
-  } else {
-    processId = res.processId;
+  try {
+    const url = isImage ? "/enhance/image" : "/enhance/video";
+    const r = await fetch(url, { method: "POST", body: fd });
+    if (!r.ok) throw new Error();
+
+    if (isImage) {
+      const blob = await r.blob();
+      const out = document.getElementById("afterImg");
+      out.src = URL.createObjectURL(blob);
+      out.classList.remove("hidden");
+      document.getElementById("status").innerText = "Done ✅";
+      finish();
+      return;
+    }
+
+    const j = await r.json();
+    processId = j.processId;
     poll();
+
+  } catch {
+    document.getElementById("status").innerText = "Failed ❌";
+    finish();
   }
 }
 
@@ -54,18 +78,24 @@ async function poll() {
 
   if (j.status === "processing") {
     document.getElementById("status").innerText =
-      `Enhancing... ${j.progress?.percent || 0}%`;
+      `Enhancing... ${Math.round(j.progress?.percent || 0)}%`;
     setTimeout(poll, 3000);
+    return;
   }
 
   if (j.status === "completed") {
-    document.getElementById("afterVid").src = j.download.url;
-    document.getElementById("downloadVid").href = j.download.url;
-    document.getElementById("downloadVid").classList.remove("hidden");
+    const vid = document.getElementById("afterVid");
+    vid.src = j.download.url;
+    vid.classList.remove("hidden");
     document.getElementById("status").innerText = "Completed ✅";
-  }
-
-  if (j.status === "failed") {
+  } else {
     document.getElementById("status").innerText = "Failed ❌";
   }
+
+  finish();
+}
+
+function finish() {
+  busy = false;
+  document.getElementById("btn").disabled = false;
 }
