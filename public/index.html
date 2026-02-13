@@ -20,7 +20,6 @@
         <option value="en">English</option>
         <option value="ar">العربية</option>
       </select>
-
       <button id="themeToggle">🌙</button>
     </div>
   </div>
@@ -38,19 +37,6 @@
   <div class="controls">
     <input type="file" id="file" accept="image/*,video/*">
 
-    <select id="quality">
-      <option value="auto">Auto Quality</option>
-      <option value="fast">Fast</option>
-      <option value="hq">High Quality</option>
-    </select>
-
-    <select id="model">
-      <option value="auto">Auto Model</option>
-      <option value="prob-4">Proteus (prob-4)</option>
-      <option value="iris-3">Iris (Faces)</option>
-      <option value="nyx-3">Nyx (Anime)</option>
-    </select>
-
     <button id="btn">Enhance</button>
   </div>
 
@@ -58,9 +44,6 @@
   <div id="warning" class="warning hidden">
     ⚠️ Please do not leave or close this page while processing
   </div>
-
-  <!-- ETA -->
-  <p id="eta"></p>
 
   <!-- PREVIEW -->
   <div id="preview" class="preview hidden">
@@ -74,6 +57,10 @@
       <h3 id="afterLabel">After</h3>
       <img id="afterImg" class="hidden">
       <video id="afterVid" class="hidden" controls></video>
+
+      <a id="downloadBtn" class="download hidden" download>
+        ⬇️ Download Result
+      </a>
     </div>
   </div>
 
