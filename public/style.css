@@ -17,13 +17,15 @@ body {
 }
 
 .top p {
-  color: #bbb;
+  color: #aaa;
 }
 
+/* CONTROLS */
 .controls {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .controls input,
@@ -39,6 +41,7 @@ body {
   cursor: pointer;
 }
 
+/* LOADER */
 .loader {
   text-align: center;
   margin: 25px 0;
@@ -58,6 +61,7 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* PREVIEW */
 .preview {
   display: flex;
   gap: 20px;
@@ -76,12 +80,14 @@ img, video {
   border-radius: 10px;
 }
 
+/* STATUS */
 .status {
   text-align: center;
   margin-top: 15px;
   font-weight: bold;
 }
 
+/* DOWNLOAD */
 .actions {
   display: flex;
   justify-content: center;
@@ -90,10 +96,23 @@ img, video {
 
 .download {
   background: #00ffaa;
-  padding: 12px 20px;
+  padding: 12px 22px;
   border-radius: 10px;
   color: #000;
   font-weight: bold;
+  text-decoration: none;
+}
+
+/* FOOTER */
+footer {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 13px;
+  color: #888;
+}
+
+footer a {
+  color: #00ffaa;
   text-decoration: none;
 }
 
