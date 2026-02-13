@@ -1,49 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Video Enhancer Pro</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>AI Enhancer Pro</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <header>
-    <h1>🔥 AI Video Enhancer</h1>
-    <p>Automatic enhancement • High Quality • No settings needed</p>
-  </header>
+<header>
+  <h1>✨ AI Image & Video Enhancer</h1>
+  <p>Automatic • High Quality • Before / After</p>
+</header>
 
-  <main>
-    <div class="card">
-      <input type="file" id="file" accept="video/*" />
-      <button onclick="start()">Enhance Automatically</button>
+<div class="tabs">
+  <button class="tab active" onclick="setMode('image')">🖼 Image</button>
+  <button class="tab" onclick="setMode('video')">🎬 Video</button>
+</div>
 
-      <div id="statusBox" class="hidden">
-        <p id="statusText">Uploading...</p>
-        <div class="progress">
-          <div id="bar"></div>
-        </div>
+<div class="card">
+  <input type="file" id="file" accept="image/*,video/*">
+  <button onclick="start()">Enhance</button>
+
+  <!-- IMAGE PREVIEW -->
+  <div id="imageBox" class="hidden">
+    <h3>Before / After</h3>
+    <div class="compare">
+      <img id="beforeImg">
+      <div class="after-wrap">
+        <img id="afterImg">
       </div>
-
-      <a id="download" class="hidden" target="_blank">⬇ Download Video</a>
+      <input type="range" min="0" max="100" value="50" id="slider">
     </div>
-  </main>
+    <a id="downloadImg" class="hidden" download>⬇ Download Image</a>
+  </div>
 
-  <footer>
-    <div class="footer-box">
-      <h3>📩 Contact Owner</h3>
-      <a href="https://www.tiktok.com/@0ver4me?_r=1&_t=ZS-93t1Gk1hUjo" target="_blank">
-        TikTok: @0ver4me
-      </a>
-    </div>
+  <!-- VIDEO PREVIEW -->
+  <div id="videoBox" class="hidden">
+    <h3>Before</h3>
+    <video id="beforeVid" controls></video>
 
-    <div class="footer-box">
-      <h3>🎬 For ScenePack HQ Clips</h3>
-      <a href="https://scenepacks.com/" target="_blank">
-        scenepacks.com
-      </a>
-    </div>
-  </footer>
+    <h3>After</h3>
+    <video id="afterVid" controls></video>
+    <a id="downloadVid" class="hidden" download>⬇ Download Video</a>
+  </div>
 
-  <script src="app.js"></script>
+  <p id="status"></p>
+</div>
+
+<footer>
+  <p>
+    Contact Owner:
+    <a href="https://www.tiktok.com/@0ver4me?_r=1&_t=ZS-93t1Gk1hUjo" target="_blank">
+      TikTok @0ver4me
+    </a>
+  </p>
+  <p>
+    For ScenePack HQ Clips:
+    <a href="https://scenepacks.com/" target="_blank">scenepacks.com</a>
+  </p>
+</footer>
+
+<script src="app.js"></script>
 </body>
 </html>
