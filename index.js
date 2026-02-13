@@ -9,17 +9,14 @@ const ffprobePath = require("ffprobe-static").path;
 const app = express();
 app.use(express.static("public"));
 
-/* ============ UPLOAD ============ */
+/* ========= UPLOAD ========= */
 const upload = multer({
   dest: "/tmp/uploads",
-  limits: { fileSize: 1024 * 1024 * 600 }
+  limits: { fileSize: 1024 * 1024 * 500 }
 });
+const safeUnlink = p => p && fs.existsSync(p) && fs.unlinkSync(p);
 
-const safeUnlink = p => {
-  if (p && fs.existsSync(p)) fs.unlinkSync(p);
-};
-
-/* ============ HELPERS ============ */
+/* ========= HELPERS ========= */
 const probe = p =>
   new Promise((res, rej) =>
     execFile(
@@ -38,41 +35,19 @@ const parseFPS = s => {
   return Number(s) || 30;
 };
 
-/* ============ PRESETS ============ */
-const PRESETS = {
-  ultra: {
-    output: {
-      dynamicCompressionLevel: "Low"
-    },
-    filters: [
-      {
-        model: "prob-4",
-        params: {
-          denoise: 8,
-          sharpen: 14,
-          recover: 18,
-          grain: 0
-        }
-      }
-    ]
-  },
-
-  astra: {
-    output: {
-      dynamicCompressionLevel: "High",
-      videoBitrate: 540540
-    },
-    overrides: {
-      isPaidDiffusion: true
-    },
-    filters: [
-      { model: "slf-2" },
-      { model: "apo-8", fps: 60, slowmo: 1 }
-    ]
-  }
+/* ========= MODELS ========= */
+const VIDEO_MODELS = {
+  "prob-4": { label: "Ultra (Best Overall)", scale: 4, params:{ denoise:6, sharpen:8, recover:10, grain:0 }},
+  "rhea-1": { label: "Clean Video", scale: 3 },
+  "iris-2": { label: "Faces v2", scale: 2 },
+  "iris-3": { label: "Faces v3 HQ", scale: 2 },
+  "nyx-3": { label: "Anime / Cartoon", scale: 4 },
+  "slf-2": { label: "Strong Denoise", scale: 2 },
+  "thf-4": { label: "Stabilize", scale: 2 },
+  "wonder-1": { label: "Creative", scale: 2 }
 };
 
-/* ============ IMAGE ============ */
+/* ========= IMAGE ========= */
 app.post("/enhance/image", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
   if (!tmp) return res.status(400).send("No image");
@@ -82,90 +57,80 @@ app.post("/enhance/image", upload.single("file"), async (req,res)=>{
     const form = new FormData();
     form.append("image", fs.createReadStream(tmp));
     form.append("model", "Standard V2");
-    form.append("scale", "4x");
+    form.append("scale", "2x");
     form.append("output_format", "png");
 
     const r = await axios.post(
       "https://api.topazlabs.com/image/v1/enhance",
       form,
       {
-        headers: {
-          ...form.getHeaders(),
-          "X-API-Key": process.env.TOPAZ_API_KEY
-        },
-        responseType: "arraybuffer"
+        headers:{ ...form.getHeaders(), "X-API-Key": process.env.TOPAZ_API_KEY },
+        responseType:"arraybuffer"
       }
     );
 
     res.set("Content-Type","image/png");
     res.send(r.data);
 
-  } catch (e) {
+  } catch {
     res.status(500).send("Image enhance failed");
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ============ VIDEO ============ */
+/* ========= VIDEO ========= */
 app.post("/enhance/video", upload.single("file"), async (req,res)=>{
   const tmp = req.file?.path;
-  if (!tmp) return res.status(400).json({ error: "No video file" });
+  if (!tmp) return res.status(400).json({ error:"No video" });
 
   try {
-    const presetKey = req.body.preset || "ultra";
-    const preset = PRESETS[presetKey];
+    const modelKey = req.body.model || "prob-4";
+    const model = VIDEO_MODELS[modelKey];
+    if (!model) return res.status(400).json({ error:"Unsupported model" });
 
     const meta = await probe(tmp);
     const v = meta.streams.find(s=>s.codec_type==="video");
     if (!v) throw new Error("No video stream");
 
     const hasAudio = meta.streams.some(s=>s.codec_type==="audio");
-
     const width = v.width;
     const height = v.height;
-    const fpsSrc = parseFPS(v.avg_frame_rate || v.r_frame_rate);
+    const fps = parseFPS(v.avg_frame_rate || v.r_frame_rate);
     const duration = Number(meta.format.duration);
     const size = Number(meta.format.size);
-    const frames = Math.max(1, Math.round(duration * fpsSrc));
+    const frameCount = Math.round(duration * fps);
 
-    let outRes, outFPS;
-
-    if (presetKey === "astra") {
-      outRes = { width: 1080, height: 1080 };
-      outFPS = 60;
-    } else {
-      outRes = {
-        width: Math.min(width * 4, 3840),
-        height: Math.min(height * 4, 2160)
-      };
-      outFPS = fpsSrc;
-    }
-
-    const audioTransfer = hasAudio ? "Copy" : "None";
-    const audioCodec = hasAudio ? "AAC" : undefined;
+    const outRes = {
+      width: Math.min(width * model.scale, 3840),
+      height: Math.min(height * model.scale, 2160)
+    };
 
     const body = {
-      source: {
-        container: "mp4",
+      source:{
+        container:"mp4",
         size,
         duration,
-        frameCount: frames,
-        frameRate: fpsSrc,
-        resolution: { width, height }
+        frameCount,
+        frameRate: fps,
+        resolution:{ width, height }
       },
-      output: {
-        container: "mp4",
+      output:{
+        container:"mp4",
         resolution: outRes,
-        frameRate: outFPS,
-        audioTransfer,
-        ...(audioCodec ? { audioCodec } : {}),
-        videoEncoder: "H264",
-        videoProfile: "High",
-        ...preset.output
+        frameRate: fps,
+        audioTransfer: hasAudio ? "Copy" : "None",
+        ...(hasAudio ? { audioCodec:"AAC" } : {}),
+        videoEncoder:"H264",
+        videoProfile:"High",
+        dynamicCompressionLevel:"Low"
       },
-      ...(preset.overrides ? { overrides: preset.overrides } : {}),
-      filters: preset.filters
+      filters:[
+        {
+          model: modelKey,
+          ...(model.params ? { params:model.params } : {})
+        }
+      ]
     };
 
     const create = await axios.post(
@@ -174,18 +139,11 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
       { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
 
-    console.log("TOPAZ CREATE:", create.data);
-
-    const requestId =
-      create.data.requestId ||
-      create.data.id;
-
-    if (!requestId) {
-      throw new Error("Topaz did not return process ID");
-    }
+    const processId = create.data.requestId || create.data.id;
+    if (!processId) throw new Error("No processId");
 
     const accept = await axios.patch(
-      `https://api.topazlabs.com/video/${requestId}/accept`,
+      `https://api.topazlabs.com/video/${processId}/accept`,
       {},
       { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
@@ -205,34 +163,26 @@ app.post("/enhance/video", upload.single("file"), async (req,res)=>{
         { headers:{ "Content-Length":len } }
       );
 
-      uploadResults.push({
-        partNum:i+1,
-        eTag:r.headers.etag.replace(/"/g,"")
-      });
+      uploadResults.push({ partNum:i+1, eTag:r.headers.etag.replace(/"/g,"") });
     }
 
     await axios.patch(
-      `https://api.topazlabs.com/video/${requestId}/complete-upload/`,
+      `https://api.topazlabs.com/video/${processId}/complete-upload/`,
       { uploadResults },
-      {
-        headers:{
-          "X-API-Key": process.env.TOPAZ_API_KEY,
-          "Content-Type":"application/json"
-        }
-      }
+      { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
     );
 
-    res.json({ processId: requestId });
+    res.json({ processId });
 
   } catch (e) {
-    console.error("VIDEO ERROR:", e.message);
-    res.status(500).json({ error: "Video enhance failed" });
+    console.error(e.message);
+    res.status(500).json({ error:"Video enhance failed" });
   } finally {
     safeUnlink(tmp);
   }
 });
 
-/* ============ STATUS ============ */
+/* ========= STATUS ========= */
 app.get("/status/:id", async (req,res)=>{
   const r = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
@@ -241,25 +191,19 @@ app.get("/status/:id", async (req,res)=>{
   res.json(r.data);
 });
 
-/* ============ DOWNLOAD ============ */
+/* ========= DOWNLOAD ========= */
 app.get("/video/download/:id", async (req,res)=>{
   const st = await axios.get(
     `https://api.topazlabs.com/video/${req.params.id}/status`,
     { headers:{ "X-API-Key": process.env.TOPAZ_API_KEY } }
   );
-
   const url = st.data?.download?.url;
   if (!url) return res.status(404).send("Not ready");
 
   const stream = await axios.get(url,{responseType:"stream"});
   res.setHeader("Content-Type","video/mp4");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="enhanced-video.mp4"`
-  );
+  res.setHeader("Content-Disposition","attachment; filename=enhanced.mp4");
   stream.data.pipe(res);
 });
 
-/* ============ START ============ */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT,()=>console.log("🔥 Server running on",PORT));
+app.listen(process.env.PORT || 3000, ()=>console.log("Server running"));
