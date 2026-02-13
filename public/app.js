@@ -1,63 +1,40 @@
-const TEXT = {
-  en: {
-    before: "Before",
-    after: "After",
-    uploading: "Uploading...",
-    queued: m => `⏳ In queue... Estimated ~${m} min`,
-    processing: p => `⚙️ Enhancing... ${p}%`,
-    done: "✅ Completed",
-    failed: "❌ Failed"
-  },
-  ar: {
-    before: "قبل",
-    after: "بعد",
-    uploading: "جاري الرفع...",
-    queued: m => `⏳ في الانتظار... حوالي ${m} دقيقة`,
-    processing: p => `⚙️ جاري التحسين... ${p}%`,
-    done: "✅ تم بنجاح",
-    failed: "❌ فشل"
-  }
-};
-
-const lang = localStorage.getItem("lang") || "en";
-const theme = localStorage.getItem("theme") || "dark";
-
-document.getElementById("langSelect").value = lang;
-document.body.classList.toggle("light", theme === "light");
-
-document.getElementById("langSelect").onchange = e => {
-  localStorage.setItem("lang", e.target.value);
-  location.reload();
-};
-
-document.getElementById("themeToggle").onclick = () => {
-  const t = document.body.classList.contains("light") ? "dark" : "light";
-  localStorage.setItem("theme", t);
-  location.reload();
-};
-
-document.getElementById("beforeLabel").innerText = TEXT[lang].before;
-document.getElementById("afterLabel").innerText = TEXT[lang].after;
-
 let busy = false;
 let processId = null;
 
-document.getElementById("btn").onclick = start;
+const fileInput = document.getElementById("file");
+const btn = document.getElementById("btn");
+const loader = document.getElementById("loader");
+const loaderText = document.getElementById("loaderText");
+const statusEl = document.getElementById("status");
 
+btn.onclick = start;
+
+/* RESET UI */
+function resetUI() {
+  processId = null;
+  statusEl.innerText = "";
+  loader.classList.add("hidden");
+  document.getElementById("actions").classList.add("hidden");
+
+  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
+    document.getElementById(id).classList.add("hidden");
+  });
+}
+
+/* START */
 async function start() {
   if (busy) return;
-  const file = document.getElementById("file").files[0];
+  const file = fileInput.files[0];
   if (!file) return;
 
-  const isImage = file.type.startsWith("image");
+  resetUI();
   busy = true;
 
-  document.getElementById("warning").classList.remove("hidden");
-  document.getElementById("status").innerText = TEXT[lang].uploading;
-  document.getElementById("preview").classList.remove("hidden");
-  document.getElementById("downloadBtn").classList.add("hidden");
+  const isImage = file.type.startsWith("image");
 
-  resetPreview();
+  document.getElementById("preview").classList.remove("hidden");
+  loader.classList.remove("hidden");
+  loaderText.innerText = "Uploading…";
 
   if (isImage) showBeforeImage(file);
   else showBeforeVideo(file);
@@ -71,11 +48,14 @@ async function start() {
 
     if (isImage) {
       const blob = await r.blob();
-      const outUrl = URL.createObjectURL(blob);
-      document.getElementById("afterImg").src = outUrl;
+      const out = URL.createObjectURL(blob);
+
+      document.getElementById("afterImg").src = out;
       document.getElementById("afterImg").classList.remove("hidden");
-      setupDownload(outUrl, "enhanced-image.jpg");
-      document.getElementById("status").innerText = TEXT[lang].done;
+
+      setupDownload(out, "enhanced-image.png");
+      loader.classList.add("hidden");
+      statusEl.innerText = "✅ Completed";
       busy = false;
       return;
     }
@@ -85,40 +65,45 @@ async function start() {
     poll();
 
   } catch {
-    document.getElementById("status").innerText = TEXT[lang].failed;
+    loader.classList.add("hidden");
+    statusEl.innerText = "❌ Failed";
     busy = false;
   }
 }
 
+/* POLL STATUS */
 async function poll() {
+  loaderText.innerText = "Enhancing (Ultra Quality)…";
+
   const r = await fetch(`/status/${processId}`);
   const j = await r.json();
 
   if (j.status === "initializing") {
-    const min = Math.round((j.estimates?.time?.[0] || 300) / 60);
-    document.getElementById("status").innerText = TEXT[lang].queued(min);
+    statusEl.innerText = "⏳ In queue…";
     setTimeout(poll, 5000);
     return;
   }
 
   if (j.status === "processing") {
-    document.getElementById("status").innerText =
-      TEXT[lang].processing(Math.round(j.progress?.percent || 0));
+    statusEl.innerText = `⚙️ Enhancing… ${Math.round(j.progress || 0)}%`;
     setTimeout(poll, 3000);
     return;
   }
 
-  if (j.status === "completed") {
+  if (j.status === "complete" || j.status === "completed") {
     const url = j.download.url;
     document.getElementById("afterVid").src = url;
     document.getElementById("afterVid").classList.remove("hidden");
+
     setupDownload(url, "enhanced-video.mp4");
-    document.getElementById("status").innerText = TEXT[lang].done;
+    loader.classList.add("hidden");
+    statusEl.innerText = "✅ Completed";
     busy = false;
     return;
   }
 
-  document.getElementById("status").innerText = TEXT[lang].failed;
+  loader.classList.add("hidden");
+  statusEl.innerText = "❌ Failed";
   busy = false;
 }
 
@@ -127,13 +112,7 @@ function setupDownload(url, name) {
   const btn = document.getElementById("downloadBtn");
   btn.href = url;
   btn.download = name;
-  btn.classList.remove("hidden");
-}
-
-function resetPreview() {
-  ["beforeImg","afterImg","beforeVid","afterVid"].forEach(id=>{
-    document.getElementById(id).classList.add("hidden");
-  });
+  document.getElementById("actions").classList.remove("hidden");
 }
 
 function showBeforeImage(file) {
